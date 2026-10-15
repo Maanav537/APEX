@@ -40,10 +40,18 @@ FetchContent_MakeAvailable(Eigen3 Catch2 rerun_sdk)
 # --- Core library: all physics code compiles once here; tests and apps link to it.
 add_library(apex
     src/core/version.cpp
+    src/physics/atmosphere.cpp
+    src/sim/simulation.cpp
 )
 target_include_directories(apex PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(apex PUBLIC Eigen3::Eigen)
-target_compile_options(apex PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(apex PRIVATE
+    "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4;/permissive-,-Wall;-Wextra;-Wpedantic>"
+)
+
+# --- Week 1 demo: dummy mouse circle drawn in Rerun. First build compiles Arrow (slow).
+add_executable(apex_sim apps/sim_main.cpp)
+target_link_libraries(apex_sim PRIVATE apex rerun_sdk)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

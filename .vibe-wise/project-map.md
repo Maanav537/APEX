@@ -19,20 +19,24 @@ APEX: pursuit/evasion simulation — autonomous "cat" pursuer vs "mouse" evader.
 - Implemented: include/apex/physics/rk4.hpp — header-only `rk4_step(f, x, t, dt)` (learner: template f, return new state; AI: template on State too). tests/test_rk4.cpp.
 - Implemented (AI placeholder): include/apex/core/version.hpp, src/core/version.cpp — to be replaced once physics lands.
 - Implemented: tests/ → `apex_tests` (Catch2 v3, discovered by ctest), tests/test_smoke.cpp.
+- Implemented: include/apex/physics/atmosphere.hpp + src/physics/atmosphere.cpp — StdAtmosphere1976::at(h) → {density, pressure, speed_of_sound}; clamp [-5,86] km (learner: struct, clamp, T internal; AI: template-swap, geopotential, limits).
+- Implemented: include/apex/sim/simulation.hpp + src/sim/simulation.cpp — Simulation::step() (learner: RK4 → t+=dt → floor check, no ceiling; AI: class shape, z-up/ground z=0, dummy center-pull f, no-op after hit).
+- Implemented: apps/sim_main.cpp → apex_sim (learner: logging outside step every 10 ticks; AI: point + path line strip, one period). tests/test_simulation.cpp.
 - Planned (learner): src/physics, later sensor, gnc; docs/ for math derivations.
 
 ## Main Flow
 apex_tests --links--> apex --links--> Eigen3
-future sim exe --links--> apex (not created)
+apex_sim --links--> apex, rerun_sdk
 
 ## Data and Trust Boundaries
 None (local library).
 
 ## Build and Deployment
+- Dev machine now Windows (learner switched): VS Build Tools 2026 (MSVC, VCTools workload), CMake 4.4.4, Ninja 1.13.2 via winget. Build from "Developer PowerShell for VS": cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release. MSVC chosen by AI because Rerun C++ SDK supports MSVC on Windows (not MinGW).
 - Deps via FetchContent (pinned, AI-proposed versions): Eigen 5.0.1, Catch2 v3.16.1, Rerun SDK 0.39.0 (EXCLUDE_FROM_ALL; Arrow builds only when linked). Toolchain: dnf gcc-c++ cmake.
-- Rerun viewer: pip install --user rerun-sdk==0.39.0 (must match SDK)
+- Rerun viewer: pip install --user rerun-sdk==0.39.0 (installed; rerun.exe in %APPDATA%/Python/Python312/Scripts, not on PATH)
 - cmake -S . -B build && cmake --build build && ctest --test-dir build
-- C++20, -Wall -Wextra -Wpedantic (AI additions)
+- C++20; warnings /W4 /permissive- on MSVC, -Wall -Wextra -Wpedantic elsewhere (AI additions)
 
 ## Unknowns
-Atmosphere API, sim loop / step() and zero-heap test, 6-DOF design.
+Quaternion derivative, 6-DOF design.

@@ -35,5 +35,38 @@
 - Learner proposed: air thins with altitude (correct); input altitude (+ temp, then altitude only); output pressure and density — missed speed of sound.
 - Introduced (AI explained): 1976 model computes T from altitude via layers/lapse rates; p hydrostatic; ρ = p/(RT); a = √(γRT).
 
+- Learner proposed: object with methods (object.density()) so model can be swapped later; keep T internal ("what would you need temp for?"); asked for options on out-of-range.
+- Introduced (AI explained): at(h)→struct vs per-quantity methods; virtual interface vs template for swappable models; T uses (viscosity, sensors); out-of-range options (clamp/throw/optional/extrapolate/assert); 1976 tables start ~-5 km.
+- Learner raised: ground hit = loss for both cat and mouse, "needs to be realistic". AI explained ground collision belongs in sim loop, not atmosphere clamp (terrain ≠ sea level). Deferred to sim-loop step.
+- Learner asked for recommendation: AI recommended template (matches RK4) and clamp at model limits [-5 km, 86 km].
+
+- Learner approved Implementation checkpoint. Implemented: include/apex/physics/atmosphere.hpp (AtmosphereSample, StdAtmosphere1976::at), src/physics/atmosphere.cpp (7-layer constexpr table, clamp [-5,86] km, geometric→geopotential), tests/test_atmosphere.cpp (sea level, 11/20 km, clamp). Math checked via Python mirror (all within 1.3e-5 of tables). Built + verified on Windows (MSVC 19.51, Ninja, CMake 4.4.4): 11/11 tests pass. Learner switched dev to Windows; AI installed toolchain on request and made warning flags MSVC/GCC portable via generator expression.
+
+## Sim loop / step()
+- Learner reviewed Week 1 exit criteria (1/3 passed: RK4 drift). Quaternion derivative in Week 1 math requirements, not started.
+- Learner proposed: step() advances sim to next moment in time (correct purpose; no internal order yet).
+- Learner proposed order: update position → get atmosphere data → check floor and ceiling. Correct: floor check after move. Needs reinforcement: atmosphere is an input to f (forces at current position), not a post-move step. Missing: advance t. Ceiling meaning unclear (game rule?). Rerun inside/outside unanswered.
+- Introduced (AI explained): air lookup lives inside f, called 4× per RK4 step; Part 1 dummy f doesn't use air.
+- Learner answered: t increments (AI placed it after RK4 move); ceiling is a physical limit, not a game rule → no ceiling check. Proposed Rerun logging inside step(); AI challenged: Rerun allocates (breaks zero-heap benchmark), 1000 Hz vs ~60 Hz display, tests run without viewer.
+- Agreed so far (learner): step() = RK4 move (air inside f) → t += dt → floor check (ground hit = loss).
+
+- Learner stated: project math (scope doc) was vibe-coded; needs to learn it themselves.
+- Learner chose math learning "as it comes up".
+- AI explained (on request): what a Rerun log call does (copies to buffer → allocates, timestamps, sends to viewer; output only).
+- Learner decided: Rerun logging outside step(), every ~10 ticks (100 Hz).
+
+- Learner approved Implementation checkpoint. Implemented: include/apex/sim/simulation.hpp + src/sim/simulation.cpp (Simulation{mouse, center, omega, t, ground_hit}; step() = RK4 → t+=dt → floor z<=0; no-op after hit); apps/sim_main.cpp → apex_sim (Rerun spawn, logs point + growing path every 10 ticks, one period); tests/test_simulation.cpp (operator new counter + sanity check, zero-heap over 1000 steps, clock, ground hit). 15/15 tests pass on MSVC. apex_sim ran (exit 0, viewer spawned); Eye test awaits learner visual confirmation. Rerun Scripts added to user PATH.
+
+- Learner confirmed Rerun circle closed: Benchmark #3 passed. All Week 1 exit criteria met.
+- Learner asked whether stack is industry standard; AI explained (C++/CMake/Eigen standard; GoogleTest more common than Catch2; Rerun newer; MATLAB/Simulink gap).
+
+- Learner stated career goal: embedded defense. AI explained relevant gaps (JSF AV C++/MISRA, Linux/GCC cross-compile, hardware/RTOS, guidance math, clearance, DO-178C). Possible future decision: adopt JSF/MISRA-style rules.
+
+- Learner asked why no interceptor; AI explained cat = interceptor, Week 1 scope is mouse-only dummy. Learner chose: add cat in Week 2 together with pursuit logic (no reason stated).
+
+## Quaternion derivative
+- Introduced (AI explained): orientation options (Euler/gimbal lock, rotation matrix, quaternion); unit quaternion [cos(θ/2), sin(θ/2)·axis]; ⊗ non-commutative; q̇ = ½ q ⊗ [0, ω] is just another f for RK4.
+- Build checkpoint asked: how to handle quaternion norm drift after RK4, and where in code.
+
 ## Pending decision
-Decision: Atmosphere API — return shape (struct vs separate fns), expose T?, out-of-range altitude behavior (stage: awaiting reasoning).
+Decision: Build checkpoint open — quaternion norm drift handling (awaiting learner reasoning). Uncommitted Week 1 work suggested for commit.

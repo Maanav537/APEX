@@ -12,15 +12,17 @@ Learning scope: entire system
 ## Experience
 Overall programming: Intermediate
 Stack familiarity: Beginner (C++, CMake, Eigen3, Catch2, flight dynamics, quaternions, numerical integration)
+Math: Beginner for project math — learner says scope doc math was vibe-coded; wants to learn it themselves
 
 ## Goals
 Primary: Understand the project end to end as we build it (default)
-Capability goal: Not specified
+Capability goal: Career in embedded defense (GNC / real-time C++); learner stated
 
 ## Preferences
 Checkpoint frequency: Normal
 Question style: Open-ended
 Implementation style: AI writes code
+Math learning: as it comes up — explain each new piece of math before coding it; revisit RK4/atmosphere later
 
 ## Strong Concepts
 No demonstrated understanding recorded yet.
@@ -29,4 +31,5 @@ No demonstrated understanding recorded yet.
 None recorded yet.
 
 ## Revisit
-None recorded yet.
+- RK4 math (why k1–k4 and weights work) — implemented but not learned
+- 1976 atmosphere formulas (lapse rates, hydrostatic pressure, geopotential altitude) — implemented but not learned
