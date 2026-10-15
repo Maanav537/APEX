@@ -67,6 +67,35 @@
 ## Quaternion derivative
 - Introduced (AI explained): orientation options (Euler/gimbal lock, rotation matrix, quaternion); unit quaternion [cos(θ/2), sin(θ/2)·axis]; ⊗ non-commutative; q̇ = ½ q ⊗ [0, ω] is just another f for RK4.
 - Build checkpoint asked: how to handle quaternion norm drift after RK4, and where in code.
+- Week 1 committed (358db35); .vscode/ left uncommitted.
+- Learner asked whether sin/cos is "just the rotation". AI explained: cos(θ/2) and sin(θ/2) are angle components; the axis supplies the direction; half-angle comes from the q v q* double application.
+- Learner proposed: get the norm, then divide or subtract. AI showed with a numeric example that divide keeps direction and subtract does not. "How" settled: q / ‖q‖.
+- Learner proposed: normalize inside rk4_step "because it adjusts the point mass as well". AI challenged: point mass has no unit-length constraint; normalizing in the generic integrator couples it to one type. Retry asked: f vs Simulation::step().
+- Learner decided: normalize q in Simulation::step() after RK4 (no reason stated; AI explained step() is the only place holding the new q). Order: RK4 → normalize → t += dt → floor check. Not implemented yet (no rigid-body state exists).
+
+## Rigid-body state
+- Introduced (AI explained): translation vs rotation table (q/ω/torque/inertia tensor I as rotational mass).
+- Build checkpoint asked: RigidBodyState fields; reuse PointMassState or standalone; mass/inertia in state or elsewhere.
+- Learner proposed: angular velocity, position, force. Missing velocity and orientation q. Needs reinforcement: force is an input computed in f, not state.
+- Introduced (AI explained): state test — has a derivative f returns / old value needed for new.
+- Learner added torque (AI: also an f input, not state). Learner decided: standalone RigidBodyState, not reusing PointMassState (reason "needs more inputs"; AI noted fields vs inputs). Learner decided: mass not state (correct, constant mass). Learner said inertia is state because it changes; AI explained body vs world frame: I_body constant, I_world = R I_body Rᵀ derived. Velocity and q still not named.
+- Learner completed: state = position, velocity, orientation, angular velocity; inertia constant.
+- Learner approved Implementation checkpoint (AI additions: ω in body frame, Eigen::Quaterniond, coefficient-wise +/*, RigidBodyParams{mass, inertia_body}). Implemented in include/apex/core/types.hpp; tests in test_types.cpp (defaults, arithmetic) and test_rk4.cpp (RK4 with RigidBodyState). 18/18 pass on MSVC.
+
+- Learner asked what RK4 is and why normalize q. AI explained: ODE dx/dt=f, Euler tangent step, RK4 four slopes with Simpson-like 1-2-2-1 weights; linear sums leave the unit 4D sphere, so q drifts. Explanation only, no demonstrated understanding yet.
+
+## Rigid-body dynamics f
+- Introduced (AI, math pieces): p-dot=v, v-dot=F/m; q-dot = ½ q⊗[0,ω] (body ω); cross product; Euler eq I ω̇ + ω×(Iω) = τ; frame change q*v*q⁻¹.
+- Build checkpoint asked: write all four derivatives (solve for ω̇); how F and τ get into f extensibly.
+- Learner answered: ṗ = v ✓, v̇ = F/m ✓ (dropped dot). q̇ "½ dot product matrix" — confused ⊗ with dot product. ω̇ = τ/(I²ω²) — wrong: folded additive gyro term into denominator, divided by matrix. Needs reinforcement: quaternion product vs dot product; matrix inverse; additive vs multiplicative terms.
+- Introduced (AI explained): matrix inverse I⁻¹ (left-multiply). Retry asked for ω̇ via scalar-analog table.
+- Learner retry: τ − I·ω̇ / ω×(I·ω) — solved for wrong side, divided by vector. AI gave symbol mapping and worked step 1 (I·ω̇ = τ − ω×(Iω)); step 2 left to learner.
+- Learner step 2: (τ − ω×(Iω)) / I — correct idea; AI fixed notation (brackets, I⁻¹ on left). Four derivatives complete: ṗ=v, v̇=F/m, q̇=½q⊗[0,ω], ω̇=I⁻¹(τ−ω×(Iω)).
+- Learner asked why I⁻¹. AI explained: non-commutative so no division, matrices mix axes, diagonal I⁻¹ = per-axis division, precompute I⁻¹ once.
+- Build checkpoint asked: how F and τ get into f without rewriting dynamics later.
+
+- Learner decided: pass F and τ in as a function (like RK4's f).
+- Learner approved Implementation checkpoint (AI additions: Wrench{force world, torque body}, inertia_body_inv precomputed via make_rigid_body_params, header-only rigid_body_derivative in physics/rigid_body.hpp). Implemented + tests/test_rigid_body.cpp (F/m, I⁻¹τ, torque-free principal spin, 90° z-spin with RK4+normalize). 22/22 pass on MSVC.
 
 ## Pending decision
-Decision: Build checkpoint open — quaternion norm drift handling (awaiting learner reasoning). Uncommitted Week 1 work suggested for commit.
+Decision: none open. Next: wire rigid body + q normalization into Simulation::step() (sim still uses point-mass mouse), or Week 2 scope (cat + pursuit).

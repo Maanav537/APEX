@@ -36,3 +36,33 @@ TEST_CASE("PointMassState supports the RK4 form x + dt * k", "[types]") {
     REQUIRE(next.position == Vec3{0.5, 0.0, 0.0});
     REQUIRE(next.velocity == Vec3{1.0, 1.0, 0.0});
 }
+
+TEST_CASE("RigidBodyState defaults to rest at the origin, unrotated", "[types]") {
+    const apex::RigidBodyState s;
+    REQUIRE(s.position == Vec3::Zero());
+    REQUIRE(s.velocity == Vec3::Zero());
+    REQUIRE(s.orientation.coeffs() == apex::Quat::Identity().coeffs());
+    REQUIRE(s.angular_velocity == Vec3::Zero());
+}
+
+TEST_CASE("RigidBodyState adds and scales all four fields", "[types]") {
+    apex::RigidBodyState a;
+    a.position = {1.0, 2.0, 3.0};
+    a.velocity = {4.0, 5.0, 6.0};
+    a.orientation = apex::Quat(1.0, 0.0, 0.0, 0.0);  // w, x, y, z
+    a.angular_velocity = {0.1, 0.2, 0.3};
+
+    apex::RigidBodyState b;
+    b.orientation = apex::Quat(0.0, 0.5, 0.0, 0.0);
+
+    const apex::RigidBodyState c = a + 2.0 * b;
+    REQUIRE(c.position == a.position);
+    REQUIRE(c.velocity == a.velocity);
+    REQUIRE(c.orientation.w() == 1.0);
+    REQUIRE(c.orientation.x() == 1.0);
+    REQUIRE(c.angular_velocity == a.angular_velocity);
+
+    const apex::RigidBodyState d = a * 3.0;
+    REQUIRE(d.position == Vec3{3.0, 6.0, 9.0});
+    REQUIRE(d.orientation.w() == 3.0);  // scaled, no longer unit length
+}

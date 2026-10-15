@@ -12,7 +12,7 @@ Learning scope: entire system
 ## Experience
 Overall programming: Intermediate
 Stack familiarity: Beginner (C++, CMake, Eigen3, Catch2, flight dynamics, quaternions, numerical integration)
-Math: Beginner for project math — learner says scope doc math was vibe-coded; wants to learn it themselves
+Math: Beginner for project math — learner says scope doc math was vibe-coded; wants to learn it themselves. Background: calculus done, currently in Engineering Math A
 
 ## Goals
 Primary: Understand the project end to end as we build it (default)
@@ -22,7 +22,7 @@ Capability goal: Career in embedded defense (GNC / real-time C++); learner state
 Checkpoint frequency: Normal
 Question style: Open-ended
 Implementation style: AI writes code
-Math learning: as it comes up — explain each new piece of math before coding it; revisit RK4/atmosphere later
+Math learning: as it comes up — explain each new piece of math before coding it; revisit RK4/atmosphere later. Learner wants the math pieces given separately so they assemble the solution themselves; always state which variable they are solving for
 
 ## Strong Concepts
 No demonstrated understanding recorded yet.

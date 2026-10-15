@@ -22,6 +22,8 @@ APEX: pursuit/evasion simulation — autonomous "cat" pursuer vs "mouse" evader.
 - Implemented: include/apex/physics/atmosphere.hpp + src/physics/atmosphere.cpp — StdAtmosphere1976::at(h) → {density, pressure, speed_of_sound}; clamp [-5,86] km (learner: struct, clamp, T internal; AI: template-swap, geopotential, limits).
 - Implemented: include/apex/sim/simulation.hpp + src/sim/simulation.cpp — Simulation::step() (learner: RK4 → t+=dt → floor check, no ceiling; AI: class shape, z-up/ground z=0, dummy center-pull f, no-op after hit).
 - Implemented: apps/sim_main.cpp → apex_sim (learner: logging outside step every 10 ticks; AI: point + path line strip, one period). tests/test_simulation.cpp.
+- Implemented: RigidBodyState{position, velocity, orientation (Quat), angular_velocity (body frame)} + RigidBodyParams{mass, inertia_body} in types.hpp (learner: fields, standalone, constants outside state; AI: body-frame ω, Eigen Quat, coeff-wise ops, params struct). Decided, not yet coded: normalize q in Simulation::step() after RK4.
+- Implemented: include/apex/physics/rigid_body.hpp — Wrench + rigid_body_derivative(t, x, params, forces) (learner: four derivative equations, forces passed as function; AI: Wrench frames, precomputed I⁻¹, header-only). tests/test_rigid_body.cpp.
 - Planned (learner): src/physics, later sensor, gnc; docs/ for math derivations.
 
 ## Main Flow
@@ -39,4 +41,4 @@ None (local library).
 - C++20; warnings /W4 /permissive- on MSVC, -Wall -Wextra -Wpedantic elsewhere (AI additions)
 
 ## Unknowns
-Quaternion derivative, 6-DOF design.
+Torque/force sources (gravity, thrust, drag, fins); sim switch to rigid body.

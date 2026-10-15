@@ -7,6 +7,7 @@ add_executable(apex_tests
     test_rk4.cpp
     test_atmosphere.cpp
     test_simulation.cpp
+    test_rigid_body.cpp
 )
 target_link_libraries(apex_tests PRIVATE apex Catch2::Catch2WithMain)
 target_compile_options(apex_tests PRIVATE

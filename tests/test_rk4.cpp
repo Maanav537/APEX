@@ -48,3 +48,20 @@ TEST_CASE("RK4 does not modify the input state", "[rk4]") {
     REQUIRE(x0.position == Vec3{1.0, 2.0, 3.0});
     REQUIRE(x1.position.isApprox(Vec3{1.4, 2.5, 3.6}));
 }
+
+TEST_CASE("RK4 integrates a RigidBodyState", "[rk4]") {
+    // Constant velocity, no rotation: the derivative of q is zero.
+    const auto f = [](double, const apex::RigidBodyState& x) {
+        apex::RigidBodyState dx;
+        dx.position = x.velocity;
+        dx.velocity = apex::Vec3::Zero();
+        dx.orientation = apex::Quat(0.0, 0.0, 0.0, 0.0);
+        dx.angular_velocity = apex::Vec3::Zero();
+        return dx;
+    };
+    apex::RigidBodyState x0;
+    x0.velocity = {2.0, 0.0, 0.0};
+    const apex::RigidBodyState x1 = apex::rk4_step(f, x0, 0.0, 0.5);
+    REQUIRE(x1.position.isApprox(apex::Vec3{1.0, 0.0, 0.0}));
+    REQUIRE(x1.orientation.coeffs() == apex::Quat::Identity().coeffs());
+}
