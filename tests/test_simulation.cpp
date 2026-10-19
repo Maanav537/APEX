@@ -2,12 +2,15 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <cstdlib>
 #include <new>
 
+#include <apex/sim/capture.hpp>
 #include <apex/sim/simulation.hpp>
 
-using apex::PointMassState;
+using apex::Mat3;
+using apex::RigidBodyState;
 using apex::Simulation;
 using apex::Vec3;
 using Catch::Matchers::WithinAbs;
@@ -31,13 +34,30 @@ void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 
-// Horizontal circle, r = 100 m, at 1000 m altitude.
-Simulation make_circle() {
-    const double r = 100.0;
-    const double omega = 0.5;
-    const Vec3 center{0.0, 0.0, 1000.0};
-    return Simulation{{center + Vec3{r, 0.0, 0.0}, Vec3{0.0, r * omega, 0.0}}, center, omega};
+constexpr double mouse_speed = 20.0;  // m/s
+constexpr double cat_speed = 60.0;    // m/s
+const Vec3 run_start{0.0, 0.0, 1000.0};
+const Vec3 run_goal{500.0, 0.0, 1000.0};
+
+RigidBodyState make_cat(const Vec3& position) {
+    RigidBodyState cat;
+    cat.position = position;
+    cat.velocity = Vec3{cat_speed, 0.0, 0.0};  // flying +x
+    return cat;
 }
+
+// Level flight along world +x, 500 m to the goal at 20 m/s. The cat starts
+// 100 km behind on the same line: it chases but can't close in time to matter.
+Simulation make_run(const Vec3& from = run_start, const Vec3& to = run_goal,
+                    const Vec3& cat_from = Vec3{-1.0e5, 0.0, 1000.0}) {
+    RigidBodyState mouse;
+    mouse.position = from;
+    const auto params = apex::make_rigid_body_params(1.0, Mat3::Identity());
+    return Simulation{mouse, params, to, mouse_speed, make_cat(cat_from), params, cat_speed};
+}
+
+// The demo chase: cat off to the side and behind, so PN has to turn it.
+Simulation make_chase() { return make_run(run_start, run_goal, Vec3{-200.0, -300.0, 1000.0}); }
 
 }  // namespace
 
@@ -50,7 +70,7 @@ TEST_CASE("allocation counter sees heap allocations", "[sim]") {
 }
 
 TEST_CASE("step() makes zero heap allocations", "[sim]") {
-    Simulation sim = make_circle();
+    Simulation sim = make_run();
 
     const std::size_t before = g_allocations.load();
     for (int i = 0; i < 1000; ++i) {
@@ -62,19 +82,61 @@ TEST_CASE("step() makes zero heap allocations", "[sim]") {
 }
 
 TEST_CASE("step() advances the clock by dt each tick", "[sim]") {
-    Simulation sim = make_circle();
+    Simulation sim = make_run();
     for (int i = 0; i < 1000; ++i) {
         sim.step();
     }
     REQUIRE_THAT(sim.time(), WithinAbs(1.0, 1e-9));
     REQUIRE_FALSE(sim.ground_hit());
+    REQUIRE_FALSE(sim.reached_goal());
+}
+
+TEST_CASE("mouse stays on the start-goal line at constant speed", "[sim]") {
+    Simulation sim = make_run();
+    for (int i = 0; i < 20000; ++i) {
+        sim.step();
+        const RigidBodyState& m = sim.mouse();
+        REQUIRE(std::abs(m.position.y()) < 1e-9);
+        REQUIRE(std::abs(m.position.z() - 1000.0) < 1e-9);
+        REQUIRE_THAT(m.velocity.norm(), WithinAbs(mouse_speed, 1e-9));
+    }
+}
+
+TEST_CASE("nose points along the velocity", "[sim]") {
+    // Diagonal climb so the nose has to turn off body +x on more than one axis.
+    Simulation sim = make_run(run_start, Vec3{300.0, 200.0, 1100.0});
+    for (int i = 0; i < 1000; ++i) {
+        sim.step();
+        const Vec3 nose = sim.mouse().orientation * Vec3::UnitX();
+        const Vec3 heading = sim.mouse().velocity.normalized();
+        REQUIRE((nose - heading).norm() < 1e-6);
+    }
+    REQUIRE_THAT(sim.mouse().orientation.norm(), WithinAbs(1.0, 1e-12));
+}
+
+TEST_CASE("mouse reaches the goal on time and then stops", "[sim]") {
+    Simulation sim = make_run();
+    int ticks = 0;
+    while (!sim.reached_goal() && ticks < 30000) {
+        sim.step();
+        ++ticks;
+    }
+    REQUIRE(sim.reached_goal());
+    REQUIRE((sim.mouse().position - run_goal).norm() <= apex::goal_radius);
+
+    // Arrives once it is within the radius: (500 - 0.5) m / 20 m/s.
+    REQUIRE_THAT(sim.time(), WithinAbs((500.0 - apex::goal_radius) / mouse_speed, 2 * apex::sim_dt));
+
+    const RigidBodyState frozen = sim.mouse();
+    const double frozen_t = sim.time();
+    sim.step();
+    REQUIRE(sim.mouse().position == frozen.position);
+    REQUIRE(sim.time() == frozen_t);
 }
 
 TEST_CASE("step() flags a ground hit and then stops", "[sim]") {
-    // Vertical circle centered 50 m up with r = 100 m: it dips below z = 0.
-    const double omega = 0.5;
-    const Vec3 center{0.0, 0.0, 50.0};
-    Simulation sim{{center + Vec3{100.0, 0.0, 0.0}, Vec3{0.0, 0.0, -50.0}}, center, omega};
+    // Goal below the floor: the mouse dives from 10 m and crosses z = 0 first.
+    Simulation sim = make_run(Vec3{0.0, 0.0, 10.0}, Vec3{0.0, 0.0, -100.0});
 
     int ticks = 0;
     while (!sim.ground_hit() && ticks < 20000) {
@@ -82,11 +144,54 @@ TEST_CASE("step() flags a ground hit and then stops", "[sim]") {
         ++ticks;
     }
     REQUIRE(sim.ground_hit());
+    REQUIRE_FALSE(sim.reached_goal());
     REQUIRE(sim.mouse().position.z() <= 0.0);
 
-    const PointMassState frozen = sim.mouse();
+    const RigidBodyState frozen = sim.mouse();
     const double frozen_t = sim.time();
     sim.step();
     REQUIRE(sim.mouse().position == frozen.position);
+    REQUIRE(sim.time() == frozen_t);
+}
+
+TEST_CASE("cat holds its speed, nose, and acceleration limit while chasing", "[sim][cat]") {
+    Simulation sim = make_chase();
+    for (int i = 0; i < 30000 && !sim.captured() && !sim.reached_goal(); ++i) {
+        sim.step();
+        const RigidBodyState& c = sim.cat();
+        REQUIRE_THAT(c.velocity.norm(), WithinAbs(cat_speed, 1e-9));
+        REQUIRE(((c.orientation * Vec3::UnitX()) - c.velocity.normalized()).norm() < 1e-6);
+        REQUIRE(sim.cat_command().norm() <= apex::cat_accel_max + 1e-9);
+    }
+}
+
+TEST_CASE("cat command is held between guidance updates", "[sim][cat]") {
+    Simulation sim = make_chase();
+    sim.step();  // tick 0: guidance runs
+    const Vec3 held = sim.cat_command();
+    REQUIRE(held.norm() > 0.0);
+    for (int i = 1; i < apex::guidance_every; ++i) {
+        sim.step();
+        REQUIRE(sim.cat_command() == held);
+    }
+    sim.step();  // tick 10: guidance runs again
+    REQUIRE(sim.cat_command() != held);
+}
+
+TEST_CASE("cat catches the mouse before it reaches the goal, then stops", "[sim][cat]") {
+    Simulation sim = make_chase();
+    int ticks = 0;
+    while (!sim.captured() && !sim.reached_goal() && ticks < 30000) {
+        sim.step();
+        ++ticks;
+    }
+    REQUIRE(sim.captured());
+    REQUIRE_FALSE(sim.reached_goal());
+    REQUIRE((sim.mouse().position - sim.cat().position).norm() < 2.0);  // within one tick of travel
+
+    const RigidBodyState frozen = sim.cat();
+    const double frozen_t = sim.time();
+    sim.step();
+    REQUIRE(sim.cat().position == frozen.position);
     REQUIRE(sim.time() == frozen_t);
 }

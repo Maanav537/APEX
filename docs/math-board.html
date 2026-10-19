@@ -1,0 +1,126 @@
+<title>APEX Math Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+  window.MathJax = { tex: { inlineMath: [['\\(', '\\)']] }, svg: { fontCache: 'global' } };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg-full.min.js"></script>
+<style>
+  /* Layout: one narrow column, a worksheet — given pieces, a diagram, then the learner's blank. */
+  :root {
+    --bg: #f5f7f8; --fg: #1b2328; --muted: #5b6870; --line: #d3dade;
+    --accent: #1f6f8b; --warn: #a2541b; --panel: #ffffff;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12181b; --fg: #e3e9ec; --muted: #94a3ab; --line: #2b363c;
+      --accent: #5fb6d4; --warn: #e09a5f; --panel: #182024; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181b; --fg: #e3e9ec; --muted: #94a3ab; --line: #2b363c;
+    --accent: #5fb6d4; --warn: #e09a5f; --panel: #182024; color-scheme: dark;
+  }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 32px 48px;
+  }
+  main { max-width: 680px; margin: 0 auto; display: grid; gap: 28px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: 26px; margin: 4px 0 0; text-wrap: balance; }
+  h2 { font-size: 17px; margin: 0 0 8px; }
+  section { display: grid; gap: 6px; min-width: 0; }
+  .eq { overflow-x: auto; padding: 4px 0; }
+  .key { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 15px; }
+  .key dt { font-family: var(--mono); color: var(--accent); }
+  .key dd { margin: 0; color: var(--muted); }
+  .task { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 6px; padding: 16px 18px; }
+  .task strong { color: var(--warn); }
+  figure { margin: 0; overflow-x: auto; }
+  figcaption { font-size: 13px; color: var(--muted); }
+  svg.diagram { width: 100%; max-width: 420px; height: auto; display: block; }
+  ol { margin: 0; padding-left: 22px; }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">Week 2 · Stage 1 · g-limit</div>
+    <h1>Shrinking a too-big acceleration command</h1>
+  </header>
+
+  <section>
+    <h2>Symbols</h2>
+    <dl class="key">
+      <dt>a_cmd</dt><dd>acceleration PN asks for (m/s²), a vector</dd>
+      <dt>a_max</dt><dd>largest acceleration the cat can pull (m/s²), a number</dd>
+      <dt>|a_cmd|</dt><dd>length of a_cmd</dd>
+    </dl>
+  </section>
+
+  <figure>
+    <svg class="diagram" viewBox="0 0 420 300" role="img" aria-label="Top view in the x-z plane. A circle of radius a_max and a square box of half-width a_max, both centred on the origin. The command vector (300, 400) points far outside both.">
+      <line x1="20" y1="250" x2="400" y2="250" stroke="var(--line)" stroke-width="1"/>
+      <line x1="70" y1="290" x2="70" y2="10" stroke="var(--line)" stroke-width="1"/>
+      <rect x="20" y="200" width="100" height="100" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <circle cx="70" cy="250" r="50" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <line x1="70" y1="250" x2="220" y2="50" stroke="var(--warn)" stroke-width="2.5"/>
+      <circle cx="220" cy="50" r="5" fill="var(--warn)"/>
+      <text x="228" y="48" fill="var(--warn)" font-family="IBM Plex Mono, monospace" font-size="13">a_cmd = (300, 400)</text>
+      <text x="126" y="214" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="12">box: each part ≤ 100</text>
+      <text x="126" y="268" fill="var(--accent)" font-family="IBM Plex Mono, monospace" font-size="12">circle: length = 100</text>
+      <text x="386" y="268" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="12">x</text>
+      <text x="78" y="22" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="12">z</text>
+    </svg>
+    <figcaption>Example with made-up numbers: a_cmd = (300, 0, 400) m/s², a_max = 100 m/s². y is 0, so only x and z are drawn.</figcaption>
+  </figure>
+
+  <section>
+    <h2>Pieces</h2>
+    <ol>
+      <li>Clip each part on its own (lands on the box):
+        <div class="eq">\[ a_i = \min\big(\max(a_{\text{cmd},i},\,-a_{\max}),\; a_{\max}\big) \quad i = x, y, z \]</div></li>
+      <li>Scale the whole vector (lands on the circle), only when \( |a_{\text{cmd}}| > a_{\max} \):
+        <div class="eq">\[ a = a_{\text{cmd}} \cdot \frac{a_{\max}}{|a_{\text{cmd}}|} \]</div></li>
+      <li>Length of a vector:
+        <div class="eq">\[ |a| = \sqrt{a_x^2 + a_y^2 + a_z^2} \]</div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <p>Clip → (100, 0, 100), z/x = 1 (flatter). Scale → (60, 0, 80), z/x = 1.33 (same direction as PN). Scale wins.</p>
+  </section>
+
+  <section>
+    <h2>Turn radius</h2>
+    <p>At constant speed \( v \), sideways acceleration \( a \) bends the path into a circle:</p>
+    <div class="eq">\[ r = \frac{v^2}{a} \]</div>
+    <p>Capping \( a \) at \( a_{\max} \) sets the tightest turn \( r_{\min} = v^2 / a_{\max} \). 1 g ≈ 9.81 m/s².</p>
+  </section>
+
+  <p>Chosen: \( v = 60 \) m/s, \( a_{\max} = 100 \) m/s² \( \Rightarrow r_{\min} = 36 \) m.</p>
+
+  <section>
+    <h2>PN inputs</h2>
+    <div class="eq">\[ r = p_{\text{mouse}} - p_{\text{cat}} \qquad v_{\text{rel}} = v_{\text{mouse}} - v_{\text{cat}} \]</div>
+    <div class="eq">\[ V_c = -\frac{r \cdot v_{\text{rel}}}{|r|} \qquad \Omega = \frac{r \times v_{\text{rel}}}{r \cdot r} \]</div>
+    <p>\( V_c > 0 \): closing. \( \Omega = 0 \): line of sight not swinging (collision course).</p>
+  </section>
+
+  <p>Head-on check: \( r = (100,0,0),\ v_{\text{rel}} = (-60,0,0) \Rightarrow V_c = 60,\ \Omega = 0 \) (no turn needed).</p>
+
+  <section>
+    <h2>PN command</h2>
+    <div class="eq">\[ a = N \, V_c \, (\Omega \times \hat r) \qquad \hat r = \frac{r}{|r|} \]</div>
+    <p>\( N \): unitless gain, textbook range 3–5. Then scale to \( a_{\max} \) if \( |a| > a_{\max} \).</p>
+  </section>
+
+  <div class="task">
+    <strong>Your step:</strong> pick \( N \) and say why.
+  </div>
+</main>

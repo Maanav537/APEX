@@ -25,6 +25,9 @@ APEX: pursuit/evasion kinematics — autonomous pursuer vs evader (3D rendezvous
 - Implemented: apps/sim_main.cpp → apex_sim (learner: logging outside step every 10 ticks; AI: point + path line strip, one period). tests/test_simulation.cpp.
 - Implemented: RigidBodyState{position, velocity, orientation (Quat), angular_velocity (body frame)} + RigidBodyParams{mass, inertia_body} in types.hpp (learner: fields, standalone, constants outside state; AI: body-frame ω, Eigen Quat, coeff-wise ops, params struct). Decided, not yet coded: normalize q in Simulation::step() after RK4.
 - Implemented: include/apex/physics/rigid_body.hpp — Wrench + rigid_body_derivative(t, x, params, forces) (learner: four derivative equations, forces passed as function; AI: Wrench frames, precomputed I⁻¹, header-only). tests/test_rigid_body.cpp.
+- Implemented: Simulation now flies a RigidBodyState mouse (learner: nose = body +x tangent, ω=(0,0,Ω), τ=0, q₀ = 90° about z, normalize after RK4; AI: forces lambda via Wrench, params 1 kg / identity I, Rerun nose arrow).
+- Implemented: include/apex/sim/capture.hpp — closest_distance(r0, r1) over one tick, capture_radius = 0.5 m (learner: s* formula, clamp [0,1], d·d < ε → |r₀|; AI: header-only in sim/ as referee, ε = 1e-12 m², not wired yet). tests/test_capture.cpp.
+- Implemented: goal-seeking mouse replaces the circle — Simulation(mouse, params, goal, speed), reached_goal(), goal_radius 0.5 m (learner: straight line, velocity set directly, arrival via closest_distance, replace circle; AI: aim nose via FromTwoVectors, zero-Wrench RK4 coast, freeze on arrival, demo start (0,0,1000) → goal (500,0,1000) at 20 m/s).
 - Planned (learner): src/physics, later sensor, gnc; docs/ for math derivations.
 
 ## Main Flow
@@ -42,4 +45,4 @@ None (local library).
 - C++20; warnings /W4 /permissive- on MSVC, -Wall -Wextra -Wpedantic elsewhere (AI additions)
 
 ## Unknowns
-Torque/force sources (gravity, thrust, drag, fins); sim switch to rigid body.
+Torque/force sources (gravity, thrust, drag, fins).

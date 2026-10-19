@@ -97,5 +97,90 @@
 - Learner decided: pass F and τ in as a function (like RK4's f).
 - Learner approved Implementation checkpoint (AI additions: Wrench{force world, torque body}, inertia_body_inv precomputed via make_rigid_body_params, header-only rigid_body_derivative in physics/rigid_body.hpp). Implemented + tests/test_rigid_body.cpp (F/m, I⁻¹τ, torque-free principal spin, 90° z-spin with RK4+normalize). 22/22 pass on MSVC.
 
-## Pending decision
-Decision: none open. Next: wire rigid body + q normalization into Simulation::step() (sim still uses point-mass mouse), or Week 2 scope (cat + pursuit).
+
+## Sim → rigid body (Option A)
+- Learner chose Option A (switch sim to rigid body) over Week 2 pursuit; no reason stated. Rigid-body work committed a782d13.
+- Introduced (AI explained): orientation independent of path (force vs ω/torque).
+- Learner decided: nose tangent to circle (follows velocity); replace PointMassState with RigidBodyState in Simulation ("new scope: moving rigid body").
+- Follow-up asked: ω (axis, rate), τ, and initial q (nose +y vs identity +x).
+- Learner: rate ω = 2π/T ✓ (one turn per lap → Ω). Gave mv²/r for axis — conflated path force with rotation axis. AI explained right-hand rule; asked axis sign and torque.
+- Learner: axis +z ✓; τ = 0 ✓ but reason wrong ("not spinning unless moving"). AI explained: torque changes spin, constant ω needs none; gyro term zero on principal axis. Needs reinforcement: torque ↔ change in ω (rotational Newton's 1st). Asked initial q.
+
+- Learner answered initial q with "(body y+)": define nose as body +y so identity q already points along world +y (valid; avoids computing q₀). AI flagged: aerospace convention is body +x forward; later thrust/drag/fins depend on the nose axis. Asked learner to choose: body +y nose, or body +x nose with a 90°-about-z q₀.
+
+- Learner decided: nose = body +x (aerospace convention); no reason stated. q₀ numbers asked.
+
+- Learner set up q₀ correctly: a=[0,0,1], q=[cos45°, sin45°·a] → [√2/2, 0, 0, √2/2] (left unevaluated). AI noted Eigen Quaterniond(w,x,y,z) constructor order vs coeffs() storage order (x,y,z,w).
+- Implementation checkpoint offered: Simulation → RigidBodyState + params, forces lambda (F = -mΩ²(p-c), τ=0), RK4 → normalize → t → floor; q₀ = 90° about z, ω=(0,0,Ω); tests nose-tangent + |q|=1; Rerun nose arrow.
+
+- Learner approved Implementation checkpoint. Implemented: Simulation holds RigidBodyState + RigidBodyParams; step() = RK4(rigid_body_derivative, forces F=-mΩ²(p-c), τ=0) → normalize q → t += dt → floor. sim_main q₀ via π/4, ω=(0,0,Ω), Rerun nose arrow (mouse/nose). Tests: nose ∥ velocity every 100 ticks over a lap (<1e-6), ‖q‖=1 (1e-12), existing sim tests ported. 24/24 pass on MSVC. apex_sim ran (exit 0); visual nose check awaits learner.
+
+- Learner confirmed nose arrow looks good in Rerun. Asked for an actual visible body. AI explained: Rerun primitives vs mesh (Asset3D), shape logged once in body frame + per-tick Transform3D(translation, q). Visual only, no physics change.
+
+- Learner deferred visible body to later (choices still open: primitive vs mesh, mouse look).
+
+## Week 2: cat + pursuit
+- No Week 2 scope doc exists (Part 1 doc names it "Giving the Cat its Brain").
+- Build checkpoint asked: how should the cat chase — what it knows, what it controls, the rule turning one into the other.
+
+- Learner asked for the most resume-relevant approach (embedded defense). AI recommended (on request): seeker-based interceptor, g-limited lateral accel command, Proportional Navigation a = N·Vc·λ̇; staged plan 1) PN on truth 2) noisy seeker 3) Kalman filter; truth sim vs flight code separation. Explained PN concept (LOS rate → 0 = collision course).
+- Learner decided: staged plan as proposed (reason: resume value). No demonstrated PN understanding yet.
+- Stage 1 Build checkpoint asked: cat point mass vs rigid body; where PN runs (inside f 4×/step vs once per tick, held); catch condition.
+
+- Learner answered: 1) rigid body ("why wouldn't it be able to do all?") 2) PN inside f 3) caught = collides with mouse.
+- AI challenged: 1) viable, but PN outputs accel, so how it becomes motion in a rigid body is unanswered (no fins/aero yet; force directly vs attitude follows); 2) inside f is fine for perfect truth but breaks at Stage 2 (random noise differs across RK4's 4 calls) and mismatches discrete flight software; 3) points never exactly coincide and fast closing can skip past between ticks; needs a radius (real: lethal radius/proximity fuze, miss distance).
+
+- Learner asked: cat as missile or drone (resume is drone-tailored); how much rewrite? AI explained: core (RK4, atmosphere, rigid body, sim loop) vehicle-agnostic; drone changes Wrench source (rotor thrust along body axis + mixer torques), adds gravity, attitude matters (tilt to accelerate) and cascaded control (guidance → attitude → motors); PN still applies (counter-UAS interceptor drones).
+
+- Learner asked AI to choose; AI recommended interceptor drone (resume fit, counter-UAS demand, cascade = PX4-style embedded skills, uses quaternion work). Learner chose: interceptor drone (via picker; reason = AI's).
+
+- Learner changed decision: cat = missile interceptor, mouse = Shahed-type one-way-attack fixed-wing drone (supersedes interceptor-drone choice; no reason stated). AI explained: less work than drone-cat (no rotor cascade); missile = PN accel + g-limit (+ optional autopilot lag); mouse kinematic waypoint cruise first, fixed-wing aero later. Tradeoff: drone-control (PX4 cascade) resume link drops.
+
+- Learner decided: PN outside RK4, once per tick (1000 Hz), command held across RK4's 4 calls. Stated reason "so it's not perfect data" — incorrect: placement doesn't change data quality (Stage 1 still truth); AI explained real reason = one consistent command per step (noise-safe in Stage 2) + discrete flight-software model. Needs reinforcement: where data imperfection comes from (sensor model, not call placement).
+
+- Scope change: project continues as an abstract, generic pursuit–evasion sim (cat/mouse, made-up non-weapon numbers); not modeled on real weapons or real attack drones. Learner chose this path.
+
+- Learner decided: controller at 100 Hz (every 10 ticks). Reason: faster is smoother but costs more CPU (correct). AI added: slower also means staler command (up to 10 ms hold) → lag can hurt stability.
+
+- Learner decided: capture radius 0.5 m (no reason). Between-tick idea: "check if their paths ever crossed". AI challenged: paths can cross at different times; must compare positions at the same time → closest approach of relative position over the tick. Gave pieces: r(s) = r0 + s·d, s∈[0,1], minimize |r(s)|²; asked learner to solve for s*.
+
+- Learner solved s* = −(r₀·d)/(d·d) correctly (derivative of quadratic = 0). Demonstrated: differentiating a dot-product quadratic.
+- Math visuals: learner asked for rendered equations; manimgx setup blocked (auto mode), so AI publishes docs/math-board.html as an artifact per math step, lightweight.
+
+- Learner proposed sim_dt 1000 → 500 Hz ("more realistic"). AI explained: physics dt is numerical accuracy, not realism; realism applies to flight-code rates. Learner decided: physics stays 1000 Hz, controller at a realistic mid-range rate rather than the top (500) → keeps the earlier 100 Hz choice. No code change.
+
+- Learner answered s* edge cases: s<0 → closest already happened, clamp to 0 (correct). d·d = 0 → "angle between them is 0, they already hit" (incorrect). AI explained: d·d = |d|² (self-dot, θ always 0); zero only when d = 0 → gap constant over tick (equal velocities), not a hit; divide-by-zero → NaN; any s gives |r₀|. Needs reinforcement: self-dot product = squared length.
+
+- Learner answered: s* > 1 → hasn't happened yet, clamp to 1 (correct). d·d guard: first thought (a) floor divisor at ε, switched to (b) branch "i guess" after AI listed options; picked s = 0 → |r₀| (correct). AI noted (a) also valid. Proceeding with (b).
+- Implemented (learner authorized): include/apex/sim/capture.hpp closest_distance(r0, r1) + capture_radius 0.5 m; tests/test_capture.cpp (4 cases). Not wired into step() (no cat yet). 28/28 tests pass.
+
+- Mouse path: learner first said "react to the cat" + "go for a stationary target"; AI separated goal-seeking (non-reactive) from evasion. Learner decided: goal-only first "so we can test the cat alone" (correct); straight line (hypotenuse = shortest path).
+- Learner proposed force toward goal with constant speed — incorrect (net force changes velocity; sideways component curves path). AI explained F = m·a; learner then listed thrust-balanced-by-drag or set velocity; chose set velocity directly (reason "simpler"; AI added: exact known path). Arrival: reuse closest_distance (learner; AI corrected "between 0–1" → distance ≤ radius). goal_radius 0.5 m, "consistent" with capture. Replace circle ("just a dummy").
+- Implemented (learner authorized): Simulation(mouse, params, goal, speed) aims velocity + nose at goal each tick, RK4 coast with zero Wrench, freeze on ground hit or reached_goal(); goal_radius in capture.hpp; test_simulation rewritten (line, speed, nose, arrival ≈ 24.975 s, ground dive); sim_main draws goal + straight path. 29/29 tests pass, no project warnings. sim_main built, not run.
+- Needs reinforcement: net force ⇒ velocity change (F = m·a).
+
+- Stage 1 Build checkpoint asked: how PN accel becomes rigid-body motion (force vs velocity, nose, g-limit, speed).
+- Learner proposed: reset cat speed to constant after each RK4 step (valid; AI added: PN ⊥ LOS has along-velocity component, finite-step lateral force grows |v| by (a·dt)²; force F = m·a_cmd implied). Said "it starts twisting orientation-wise" — ambiguous; AI asked: nose follows velocity (set vs torque) or flagging a problem? Plus where g-limit goes.
+
+- Learner decided: option 1 — set cat orientation directly each tick like the mouse (nose = body +x along v). No reason stated.
+
+- g-limit Build checkpoint: learner decided cap goes between PN and force (no reason stated); scale whole vector (correct choice). Stated reason "whole system slows down rather than just one velocity" — confuses acceleration with velocity (cap limits turn rate, speed is reset to constant anyway). Direction effect not yet explained by learner; AI gave worked example on math board (a_cmd = (300,0,400), a_max = 100) for learner to compute clip vs scale.
+
+- Learner asked for help on clip-vs-scale; AI gave per-component clip worked for x, scale steps, ratio = direction. Learner computed clip (100,0,100), |a|=500, k=0.2, scaled (60,0,80), ratios 1 vs 1.33, clipped "flatter" (all correct, with scaffolding). AI explained: check = does limiter preserve PN's direction; scale keeps it, clip tilts it.
+
+- Learner asked what clip/scale are for; AI explained g-limit purpose (PN unaware of airframe limits). Cap placement: learner stated flow (force uses capped accel); raw force → can't limit sharp turns (correct); velocity cap → garbled (said limits how fast). AI explained velocity cap is a no-op with constant speed; r = v²/a, so cap on accel = minimum turn radius.
+- Needs reinforcement: acceleration vs velocity (recurring).
+
+- Learner proposed high-speed real-interceptor-scale numbers (750 m/s, ~38 g, mouse 300 m/s, 5–10 km); AI declined (keeps agreed abstract, non-weapon scale); explained realism = physics/ratios, not speed.
+- Learner decided: cat v = 60 m/s, a_max = 100 m/s², computed r_min = 36 m (correct; first attempt had v=50 → 36, self-corrected). Limiter complete.
+- PN inputs Concept given: r, v_rel, Vc = −(r·v_rel)/|r|, Ω = (r×v_rel)/(r·r). Asked learner to compute Vc, Ω for head-on case r=(100,0,0), v_rel=(−60,0,0).
+
+- Learner asked what Ω and Vc are (read Ω as "ohm"); AI explained with string analogy. Learner computed Vc = 60, Ω = 0 (correct).
+- PN command Concept given: a = N·Vc·(Ω×r̂), r̂ = r/|r|, N = gain. Asked learner to pick N (3–5) with reason.
+
+- Learner asked what N is; AI explained as steering gain with table. Learner decided N = 3 ("so it doesn't over-correct often"; correct tradeoff, AI added slower swing fix).
+- Implementation checkpoint approved (Implement this step): gnc/pn.hpp (pn_command, limit_accel), truth at tick start, |r|≈0 guard, capture before goal + captured(), no gravity, cat spawn (−200,−300,1000) +x 60 m/s, tests, Rerun cat path.
+
+- Implemented (authorized): gnc/pn.hpp, Simulation with cat, sim_main cat drawing, test_pn.cpp (6), cat sim tests. 40/41 pass. FAIL: cat misses (closest 237.6 m at 7.6 s). Cause: true PN ⊥ LOS + speed reset discards along-velocity part; weak turn, Vc goes negative. Scratch test (not in project): pure PN a = N·(Ω×v_cat) captures at 8.19 s, miss 0.476 m (marginal vs 0.5 m).
+
+- Learner decided (instead of A/B): raise N from 3 to 5 ("change n=5"; no reason stated). Implemented cat_nav_gain = 5.0. 41/41 pass on MSVC (capture test now passes). Reasoning for why N=5 fixes the miss not yet given; asked.

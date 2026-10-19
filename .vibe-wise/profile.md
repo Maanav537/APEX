@@ -16,7 +16,7 @@ Math: Beginner for project math — learner says scope doc math was vibe-coded; 
 
 ## Goals
 Primary: Understand the project end to end as we build it (default)
-Capability goal: Career in embedded defense (GNC / real-time C++); learner stated
+Capability goal: Career in embedded defense (GNC / real-time C++); learner stated. Resume is drone-focused; wants project to maximize resume value
 
 ## Preferences
 Checkpoint frequency: Normal
@@ -25,10 +25,11 @@ Implementation style: AI writes code
 Math learning: as it comes up — explain each new piece of math before coding it; revisit RK4/atmosphere later. Learner wants the math pieces given separately so they assemble the solution themselves; always state which variable they are solving for
 
 ## Strong Concepts
-No demonstrated understanding recorded yet.
+- Minimizing a dot-product quadratic (solved s* for closest approach); clamping s to the tick
 
 ## Developing Concepts
-None recorded yet.
+- Self dot product d·d = |d|² (confused with angle between vectors)
+- Net force ⇒ velocity change, F = m·a (expected constant push to hold speed)
 
 ## Revisit
 - RK4 math (why k1–k4 and weights work) — implemented but not learned
