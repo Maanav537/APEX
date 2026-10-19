@@ -37,3 +37,5 @@ Before moving to Week 2 (Giving the Cat its Brain), you must pass the following 
 *   [ ] **The Math Test:** Your RK4 integrator achieves a drift of $< 10^{-6}$ when tested against a known 3D circular orbit in Catch2.
 *   [ ] **The Memory Test:** Zero heap (dynamic) memory allocations occur during the active inner simulation loop (`step()`). It must be blazing fast.
 *   [ ] **The Eye Test:** Rerun.io successfully opens a 3D window and draws a smooth, closed circular path proving the mouse is flying perfectly.
+
+Cat pursuer design (PN, g-limit, catch): `docs/scope/cat-pursuer-locked-decisions.md`.
