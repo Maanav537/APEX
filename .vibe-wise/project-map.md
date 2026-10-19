@@ -1,7 +1,7 @@
 # Project Map
 
 ## Purpose
-APEX: pursuit/evasion simulation — autonomous "cat" pursuer vs "mouse" evader. Scope docs per part in docs/scope/. Claude Code reads `CLAUDE.md` first; cat design locked in `docs/scope/cat-pursuer-locked-decisions.md`.
+APEX: pursuit/evasion simulation — autonomous "cat" pursuer vs "mouse" evader. Scope docs per part in docs/scope/.
 
 ## Requirements
 - CMake project scaffold with Eigen3 and Catch2
@@ -10,7 +10,6 @@ APEX: pursuit/evasion simulation — autonomous "cat" pursuer vs "mouse" evader.
 - Point-mass and rigid-body 6-DOF quaternion engine
 - Part 1 (docs/scope/part-01-...md): RK4 fixed step 1000 Hz; atmosphere rho/p/a(h); Rerun viewer, circular dummy mouse;
   exit: RK4 drift < 1e-6 on circular orbit, zero heap allocs in step(), Rerun draws closed circle.
-- Cat pursuer (docs/scope/cat-pursuer-locked-decisions.md): rigid body, nose along velocity; PN 100 Hz outside RK4; F = m·a_cmd; speed reset after RK4; catch at closest distance ≤ 0.5 m in a tick; g-limit after PN before force, scale whole a_cmd to |a| ≤ a_max.
 - Learner decisions vs doc: FetchContent for all deps (matches doc), warnings only / no -Werror (differs), include/apex/core/ (differs), Rerun added now (matches doc).
 
 ## Components

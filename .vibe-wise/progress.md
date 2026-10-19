@@ -35,12 +35,5 @@
 - Learner proposed: air thins with altitude (correct); input altitude (+ temp, then altitude only); output pressure and density — missed speed of sound.
 - Introduced (AI explained): 1976 model computes T from altitude via layers/lapse rates; p hydrostatic; ρ = p/(RT); a = √(γRT).
 
-## Cat pursuer (Stage 1)
-- Locked: rigid body; nose along velocity every tick (same as mouse).
-- Locked: PN at 100 Hz outside RK4; command held across RK4’s 4 calls.
-- Locked: F = m · a_cmd; after each RK4 step, cat speed reset to a constant.
-- Locked: catch when closest distance during a tick is ≤ 0.5 m.
-- Locked: g-limit between PN and the force; if |a_cmd| > a_max, scale the whole vector (do not clip x/y/z). File pointer: `docs/scope/cat-pursuer-locked-decisions.md`.
-
 ## Pending decision
 Decision: Atmosphere API — return shape (struct vs separate fns), expose T?, out-of-range altitude behavior (stage: awaiting reasoning).
