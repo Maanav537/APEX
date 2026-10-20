@@ -1,6 +1,6 @@
 #include <apex/gnc/tracker.hpp>
 
-#include <apex/gnc/radar.hpp>
+#include <apex/gnc/bearing_sensor.hpp>
 
 namespace apex {
 
@@ -8,7 +8,7 @@ Tracker::Tracker(const TrackerParams& params) : params_(params), rng_(params.see
 
 void Tracker::update(const Vec3& own_position, const Vec3& r_true) {
     z_ = own_position +
-         radar_reading(r_true, params_.range_sigma, params_.angle_sigma, rng_, unit_noise_);
+         sensor_reading(r_true, params_.range_sigma, params_.angle_sigma, rng_, unit_noise_);
 
     if (!started_) {
         p_hat_ = z_;

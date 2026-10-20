@@ -16,14 +16,14 @@ struct EvadeParams {
 };
 
 struct EvadeCommand {
-    Vec3 accel = Vec3::Zero();  // m/s^2, world frame, limited
+    Vec3 accel = Vec3::Zero();  // m/s^2, world frame, not yet limited (see limit_turn_and_speed)
     bool dodging = false;
     double t_go = std::numeric_limits<double>::infinity();  // s, infinite when not closing
 };
 
 // The mouse's rule: push toward the goal, and when the cat is close in time,
 // also weave up and down across the LOS so the cat's filter is always behind.
-// Sum, then limit.
+// Summed, not limited: the caller limits it together with the speed push.
 //
 // `r` is the LOS from the mouse (cat - mouse), `v_rel` its rate (v_cat - v_mouse),
 // both world frame. `time_in_weave` is how long the weave has been running
@@ -63,7 +63,7 @@ inline EvadeCommand evade_command(const Vec3& r, const Vec3& v_rel, const Vec3& 
         }
     }
 
-    out.accel = limit_accel(a_goal + a_dodge, params.accel_max);
+    out.accel = a_goal + a_dodge;
     return out;
 }
 

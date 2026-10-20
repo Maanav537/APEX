@@ -11,9 +11,10 @@ add_executable(apex_tests
     test_domain.cpp
     test_capture.cpp
     test_pn.cpp
-    test_seeker.cpp
+    test_observer.cpp
     test_tracker.cpp
     test_evade.cpp
+    test_speed.cpp
 )
 target_link_libraries(apex_tests PRIVATE apex Catch2::Catch2WithMain)
 target_compile_options(apex_tests PRIVATE

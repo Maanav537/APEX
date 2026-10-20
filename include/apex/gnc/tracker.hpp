@@ -23,14 +23,14 @@ struct TrackerParams {
     double beta = abg_beta(0.05);  // velocity share of the error
     double gamma = abg_gamma(0.05);  // acceleration share of the error
     double dt = 0.01;              // s, time between updates (100 Hz)
-    std::uint32_t seed = 54321;    // fixed, and not the seeker's seed
+    std::uint32_t seed = 54321;    // fixed, and not the observer's seed
 };
 
 // The mouse's sensor plus an alpha-beta-gamma filter on the cat's absolute
 // position.
 //
 // Each update() takes the mouse's own position and the true LOS (cat - mouse),
-// makes a noisy radar reading of the LOS, and adds the mouse's own position:
+// makes a noisy bearing/range sensor reading of the LOS, and adds the mouse's own position:
 // z = p_mouse + reading is a noisy cat position. The mouse's own motion is
 // gone before filtering, so a_hat is the cat's acceleration alone.
 //   predict   p_pred = p_hat + v_hat * dt + a_hat * dt^2 / 2

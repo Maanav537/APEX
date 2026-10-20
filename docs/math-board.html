@@ -7,7 +7,6 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg-full.min.js"></script>
 <style>
-  /* Layout: one narrow column, a worksheet — given pieces, a diagram, then the learner's blank. */
   :root {
     --bg: #f5f7f8; --fg: #1b2328; --muted: #5b6870; --line: #d3dade;
     --accent: #1f6f8b; --warn: #a2541b; --panel: #ffffff;
@@ -39,75 +38,58 @@
   .key { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 15px; }
   .key dt { font-family: var(--mono); color: var(--accent); }
   .key dd { margin: 0; color: var(--muted); }
-  .task { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 6px; padding: 16px 18px; }
-  .task strong { color: var(--warn); }
-  figure { margin: 0; overflow-x: auto; }
-  figcaption { font-size: 13px; color: var(--muted); }
-  svg.diagram { width: 100%; max-width: 420px; height: auto; display: block; }
-  ol { margin: 0; padding-left: 22px; }
 </style>
 
 <main>
   <header>
-    <div class="eyebrow">Week 2 · Stage 2 · sensor noise</div>
-    <h1>Smoothing a noisy v_rel</h1>
+    <div class="eyebrow">Week 2 · Stage 3 · Linear Kalman Filter (Solved)</div>
+    <h1>Complete 3-State Kalman Filter Loop</h1>
   </header>
 
   <section>
-    <h2>Symbols</h2>
-    <dl class="key">
-      <dt>z_k</dt><dd>raw r from the sensor at tick k (m), noisy</dd>
-      <dt>dt</dt><dd>0.01 s (100 Hz controller)</dd>
-      <dt>σ</dt><dd>noise spread on each r reading (m)</dd>
-      <dt>v̂, r̂</dt><dd>filter's estimate (hat = estimate, not truth)</dd>
-    </dl>
+    <h2>1 · Predict (push state & uncertainty forward by dt)</h2>
+    <div class="eq">\[
+      p_{\text{pred}} = \hat p + \hat v\,dt + \tfrac{1}{2}\hat a\,dt^2, \qquad
+      v_{\text{pred}} = \hat v + \hat a\,dt, \qquad
+      a_{\text{pred}} = \hat a
+    \]</div>
+    <div class="eq">\[
+      P_{\text{pred}} = F P F^T + Q, \qquad
+      F = \begin{bmatrix} 1 & dt & \tfrac{1}{2}dt^2 \\ 0 & 1 & dt \\ 0 & 0 & 1 \end{bmatrix}
+    \]</div>
   </section>
 
   <section>
-    <h2>The problem</h2>
-    <div class="eq">\[ v_{\text{meas}} = \frac{z_k - z_{k-1}}{dt} \qquad \sigma_v \approx \frac{\sqrt{2}\,\sigma}{dt} = \frac{\sqrt 2 \cdot 1}{0.01} \approx 141 \text{ m/s} \]</div>
-  </section>
-
-  <figure>
-    <svg class="diagram" viewBox="0 0 420 200" role="img" aria-label="Noisy dots scattered around a rising true line; a smooth filtered line follows the truth but trails a little behind it.">
-      <line x1="20" y1="180" x2="400" y2="180" stroke="var(--line)"/>
-      <line x1="20" y1="180" x2="380" y2="40" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
-      <g fill="var(--warn)">
-        <circle cx="50" cy="150" r="3"/><circle cx="80" cy="175" r="3"/><circle cx="110" cy="120" r="3"/>
-        <circle cx="140" cy="150" r="3"/><circle cx="170" cy="85" r="3"/><circle cx="200" cy="125" r="3"/>
-        <circle cx="230" cy="80" r="3"/><circle cx="260" cy="110" r="3"/><circle cx="290" cy="50" r="3"/>
-        <circle cx="320" cy="90" r="3"/><circle cx="350" cy="40" r="3"/>
-      </g>
-      <path d="M20 180 C 120 165, 220 120, 380 62" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-      <text x="300" y="30" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="12">truth</text>
-      <text x="300" y="100" fill="var(--accent)" font-family="IBM Plex Mono, monospace" font-size="12">filtered (lags)</text>
-      <text x="30" y="110" fill="var(--warn)" font-family="IBM Plex Mono, monospace" font-size="12">raw readings</text>
-    </svg>
-    <figcaption>More smoothing → calmer line, further behind the truth.</figcaption>
-  </figure>
-
-  <section>
-    <h2>Three filter types</h2>
-    <ol>
-      <li><strong>Moving average</strong>: average the last \( M \) raw values. Lag ≈ \( \tfrac{M-1}{2}\,dt \).
-        <div class="eq">\[ \hat v_k = \frac{1}{M}\sum_{j=0}^{M-1} v_{\text{meas},\,k-j} \]</div></li>
-      <li><strong>Exponential (low-pass)</strong>: nudge the estimate toward each new value by a fraction \( \alpha \in (0,1] \). Remembers one number.
-        <div class="eq">\[ \hat v_k = \hat v_{k-1} + \alpha\,(v_{\text{meas}} - \hat v_{k-1}) \]</div></li>
-      <li><strong>Alpha-beta tracker</strong>: predict where r should be, compare to the reading, correct both r̂ and v̂. Never differences raw readings.
-        <div class="eq">\[ r_{\text{pred}} = \hat r_{k-1} + \hat v_{k-1}\,dt \qquad e = z_k - r_{\text{pred}} \]</div>
-        <div class="eq">\[ \hat r_k = r_{\text{pred}} + \alpha\,e \qquad \hat v_k = \hat v_{k-1} + \frac{\beta}{dt}\,e \]</div></li>
-    </ol>
+    <h2>2 · Distance-scaled measurement variance R(d)</h2>
+    <div class="eq">\[
+      R(d) = \sigma_r^2 + (d \cdot \sigma_\theta)^2
+    \]</div>
+    <p>At \( d = 2000\text{ m} \): \( R(2000) = 1^2 + (2000 \cdot 0.001)^2 = 1 + 4 = 5\text{ m}^2 \).<br>
+       At \( d = 50\text{ m} \): \( R(50) = 1^2 + (50 \cdot 0.001)^2 = 1 + 0.0025 = 1.0025\text{ m}^2 \).</p>
   </section>
 
   <section>
-    <h2>Chosen: alpha-beta</h2>
-    <p>Start: \( \hat r_0 = z_0,\ \hat v_0 = 0 \). Remembers \( \hat r, \hat v \).</p>
-    <p>\( \alpha \to 1 \): trust the reading (noisy, fast). \( \alpha \to 0 \): trust the prediction (smooth, slow). Common pairing:</p>
-    <div class="eq">\[ \beta = \frac{\alpha^2}{2 - \alpha} \]</div>
-    <p>Settling takes roughly \( 1/\alpha \) ticks for \( \hat r \), longer for \( \hat v \).</p>
+    <h2>3 · Solved Innovation Variance S and Gains K</h2>
+    <div class="eq">\[
+      S = P_{\text{pred}}(0,0) + R(d)
+    \]</div>
+    <div class="eq">\[
+      K_0 = \frac{P_{\text{pred}}(0,0)}{S}, \qquad
+      K_1 = \frac{P_{\text{pred}}(1,0)}{S}, \qquad
+      K_2 = \frac{P_{\text{pred}}(2,0)}{S}
+    \]</div>
   </section>
 
-  <div class="task">
-    <strong>Your step:</strong> pick \( \sigma \) (m) and \( \alpha \), then solve for \( \beta \) with the pairing formula.
-  </div>
+  <section>
+    <h2>4 · Correct (nudge estimates and shrink uncertainty)</h2>
+    <div class="eq">\[
+      e = z - p_{\text{pred}}, \qquad
+      \hat p = p_{\text{pred}} + K_0\,e, \qquad
+      \hat v = v_{\text{pred}} + K_1\,e, \qquad
+      \hat a = a_{\text{pred}} + K_2\,e
+    \]</div>
+    <div class="eq">\[
+      P = (I - K H)\,P_{\text{pred}}
+    \]</div>
+  </section>
 </main>

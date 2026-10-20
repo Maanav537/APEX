@@ -88,11 +88,9 @@ TEST_CASE("no weave while t_go is at or above the threshold", "[evade]") {
     REQUIRE_FALSE(cmd.dodging);
 }
 
-TEST_CASE("goal push and weave are summed, then limited", "[evade]") {
-    // Goal left (+50 y) and weave up (+50 z): sum is 50*sqrt(2), limited to 50.
+TEST_CASE("goal push and weave are summed, not limited", "[evade]") {
+    // Goal left (+50 y) and weave up (+50 z): the caller limits it, with the speed push.
     const auto cmd = evade_command(r_close, v_close, mouse_v, Vec3{0.0, 300.0, 0.0}, 0.0);
-    const EvadeParams p;
     REQUIRE(cmd.dodging);
-    REQUIRE_THAT(cmd.accel.norm(), WithinAbs(p.accel_max, 1e-9));
-    REQUIRE_THAT(cmd.accel.y(), WithinAbs(cmd.accel.z(), 1e-9));  // direction kept
+    REQUIRE((cmd.accel - Vec3{0.0, 50.0, 50.0}).norm() < 1e-9);
 }

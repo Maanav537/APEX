@@ -5,7 +5,7 @@ Welcome to Phase 1. Before the pursuer can achieve 3D rendezvous with the evader
 
 In this phase, both the pursuer (the autonomous 6-DOF flight vehicle, still a point-mass for now) and the evader (a non-cooperative aerial object / dynamic reference point) are modeled purely as "dots" in 3D space. There is no guidance law yet and no evasive maneuvering. The goal is to ensure your mathematical engine can flawlessly move these dots through space, and to hook up a 3D visualizer so you can actually watch it happen.
 
-Use academic pursuit-evasion naming throughout (`pursuer_pos`, `evader_pos`, `ConvergenceStatus`, proximity threshold). Avoid weaponized nouns in symbols and docstrings; the underlying RK4 / rigid-body math is identical either way.
+Use academic pursuit-evasion naming throughout (`pursuer_pos`, `evader_pos`, `ConvergenceStatus`, proximity threshold).
 
 ## 2. Core Deliverables
 *   **Project Architecture (The Toolbox):** Establish the CMake project scaffold. Hook up Eigen3 (for fast matrix math), Catch2 (for testing), and the Rerun C++ SDK (our window into the arena).

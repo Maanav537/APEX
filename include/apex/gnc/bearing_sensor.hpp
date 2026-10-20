@@ -7,13 +7,13 @@
 
 namespace apex {
 
-// One noisy radar reading of `r_true` (target - self, world frame), shared by
-// the cat's seeker and the mouse's tracker.
+// One noisy bearing/range sensor reading of `r_true` (evader - self, world frame),
+// shared by the cat's observer and the mouse's tracker.
 //
 // Truth -> range, azimuth, elevation -> add Gaussian noise -> back to x, y, z.
 // Azimuth is around z from +x; elevation is up from the x-y plane.
-inline Vec3 radar_reading(const Vec3& r_true, double range_sigma, double angle_sigma,
-                          std::mt19937& rng, std::normal_distribution<double>& unit_noise) {
+inline Vec3 sensor_reading(const Vec3& r_true, double range_sigma, double angle_sigma,
+                           std::mt19937& rng, std::normal_distribution<double>& unit_noise) {
     const double range = r_true.norm();
     const double azimuth = std::atan2(r_true.y(), r_true.x());
     const double elevation = std::atan2(r_true.z(), std::hypot(r_true.x(), r_true.y()));

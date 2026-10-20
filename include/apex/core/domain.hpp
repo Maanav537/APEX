@@ -4,19 +4,6 @@
 
 namespace apex {
 
-// Academic naming for pursuit-evasion kinematics. Prefer these symbols in
-// code, prompts, and docstrings over weaponized nouns:
-//
-//   Avoid                         Use instead
-//   ---------------------------   ------------------------------------------
-//   Missile / Interceptor         Pursuer, 6-DOF flight vehicle
-//   Target / Threat / Enemy       Evader, dynamic reference point
-//   Interception / Hit-to-Kill    3D rendezvous, terminal-state convergence,
-//                                 zero-effort miss (ZEM) minimization
-//   Seeker / Targeting radar      LOS bearing sensor, relative-state observer
-//   Engagement simulation         Differential game / pursuit-evasion kinematics
-//   Detonation / Kill radius      Proximity threshold / terminal boundary
-
 using PursuerState = PointMassState;
 using EvaderState = PointMassState;
 

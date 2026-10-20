@@ -2,9 +2,17 @@
 // PN. Rerun draws the goal, both paths, each nose arrow, and the mouse's
 // command (red while dodging). Sensor graphs (time series) sit beside the 3D
 // view on the same sim_time timeline.
+//
+// Options:
+//   --random-spawn   start the mouse at a random spot in a flat circle around the default
+//                    start (printed with its seed)
+//   --seed N         with --random-spawn: use seed N to replay a run
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -12,11 +20,38 @@
 
 #include <apex/sim/simulation.hpp>
 
-int main() {
-    const apex::Vec3 start{0.0, 0.0, 1000.0};  // m
+int main(int argc, char** argv) {
+    bool random_spawn = false;
+    std::uint32_t seed = std::random_device{}();
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--random-spawn") {
+            random_spawn = true;
+        } else if (arg == "--seed" && i + 1 < argc) {
+            seed = static_cast<std::uint32_t>(std::stoul(argv[++i]));
+        } else {
+            std::fprintf(stderr, "usage: apex_sim [--random-spawn] [--seed N]\n");
+            return 1;
+        }
+    }
+
+    apex::Vec3 start{0.0, 0.0, 1000.0};  // m
+    if (random_spawn) {
+        // Flat circle (same altitude) around the default start. sqrt(u) spreads points
+        // evenly over the area instead of bunching them at the center.
+        constexpr double spawn_radius = 300.0;  // m, keeps the mouse at least 200 m from the goal
+        constexpr double pi = 3.14159265358979323846;
+        std::mt19937 rng(seed);
+        std::uniform_real_distribution<double> unit(0.0, 1.0);
+        const double radius = spawn_radius * std::sqrt(unit(rng));
+        const double angle = 2.0 * pi * unit(rng);
+        start += apex::Vec3{radius * std::cos(angle), radius * std::sin(angle), 0.0};
+        std::printf("random spawn: mouse at (%.1f, %.1f, %.1f) m, seed %u\n", start.x(),
+                    start.y(), start.z(), static_cast<unsigned>(seed));
+    }
     const apex::Vec3 goal{500.0, 0.0, 1000.0};  // m
     const double mouse_speed = 20.0;            // m/s
-    const double cat_speed = 50.0;              // m/s, with a 0.2 s weave the mouse gets through
+    const double cat_speed = 50.0;              // m/s, cruise
 
     apex::RigidBodyState mouse;
     mouse.position = start;  // velocity and nose are aimed at the goal by Simulation
@@ -38,7 +73,7 @@ int main() {
 
     // Drawing lives outside step(): it allocates, and 100 Hz is plenty for the eye.
     const int log_every = apex::guidance_every;
-    const double max_time = 2.0 * (goal - start).norm() / mouse_speed;  // s, safety stop
+    const double max_time = 2.0 * (goal - start).norm() / mouse_speed;  // s, upper time limit
     const int max_steps = static_cast<int>(std::lround(max_time / apex::sim_dt));
     const double nose_length = 20.0;  // m, display only
 
@@ -96,13 +131,15 @@ int main() {
                                  .with_names(std::move(names))
                                  .with_colors(std::move(colors)));
     };
-    series("seeker_range_error", {"raw reading - truth (m)", "r_hat - truth (m)"}, {raw_c, est_c});
-    series("seeker_vrel_error", {"|v_hat - true v_rel| (m/s)"}, {est_c});
+    series("observer_range_error", {"raw reading - truth (m)", "r_hat - truth (m)"}, {raw_c, est_c});
+    series("observer_vrel_error", {"|v_hat - true v_rel| (m/s)"}, {est_c});
     series("mouse_sees_cat_turn", {"a_hat across LOS (m/s^2)", "cat command (m/s^2)"},
            {est_c, truth_c});
     series("mouse_t_go", {"t_go (s, capped at 20)", "dodge threshold (s)", "dodging (0/1)"},
            {est_c, limit_c, truth_c});
     series("mouse_weave", {"mouse command, up component (m/s^2)"}, {limit_c});
+    series("speeds", {"cat speed (m/s)", "mouse speed (m/s)", "cat sees weave (0/1)"},
+           {limit_c, est_c, truth_c});
 
     // `before` is the truth the sensors read this tick: guidance runs on
     // start-of-tick truth, so compare against the state before step().
@@ -112,13 +149,14 @@ int main() {
             rec.log(path, rerun::Scalars(std::move(values)));
         };
 
-        // Cat's seeker: r = mouse - cat.
+        // Cat's observer: r = mouse - cat.
         const apex::Vec3 r_true = mouse_before.position - cat_before.position;
         const apex::Vec3 v_rel_true = mouse_before.velocity - cat_before.velocity;
-        const apex::Seeker& seeker = sim.seeker();
-        plot("seeker_range_error", {seeker.last_reading().norm() - r_true.norm(),
-                                    seeker.r_hat().norm() - r_true.norm()});
-        plot("seeker_vrel_error", {(seeker.v_hat() - v_rel_true).norm()});
+        const apex::CatObserver& observer = sim.observer();
+        plot("observer_range_error", {observer.last_reading().norm() - r_true.norm(),
+                                      observer.r_hat().norm() - r_true.norm()});
+        plot("observer_vrel_error",
+             {((observer.v_hat() - cat_before.velocity) - v_rel_true).norm()});
 
         // Mouse's tracker: the turn part of a_hat (not used by the weave; shown
         // to compare the estimate with the cat's real command).
@@ -129,6 +167,8 @@ int main() {
         plot("mouse_t_go", {std::min(sim.mouse_t_go(), 20.0), evade.t_go_on,
                             sim.mouse_dodging() ? 1.0 : 0.0});
         plot("mouse_weave", {sim.mouse_command().z()});
+        plot("speeds", {sim.cat().velocity.norm(), sim.mouse().velocity.norm(),
+                        sim.cat_sees_weave() ? 1.0 : 0.0});
     };
 
     auto running = [&] { return !sim.ground_hit() && !sim.captured() && !sim.reached_goal(); };
@@ -147,4 +187,10 @@ int main() {
         log_sensors(mouse_before, cat_before, cat_accel);
     }
     log();  // final point: capture, goal, or ground
+
+    const char* outcome = sim.captured()       ? "cat caught the mouse"
+                          : sim.reached_goal() ? "mouse reached the goal"
+                          : sim.ground_hit()   ? "mouse hit the ground"
+                                               : "time limit";
+    std::printf("%s at %.2f s\n", outcome, sim.time());
 }

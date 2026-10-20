@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
@@ -156,19 +157,21 @@ TEST_CASE("step() flags a ground hit and then stops", "[sim]") {
     REQUIRE(sim.time() == frozen_t);
 }
 
-TEST_CASE("cat holds its speed, nose, and acceleration limit while chasing", "[sim][cat]") {
+TEST_CASE("cat keeps its speed range, nose, and acceleration limit while chasing", "[sim][cat]") {
     Simulation sim = make_chase();
+    const apex::SpeedParams sp;
     for (int i = 0; i < 30000 && !sim.captured() && !sim.reached_goal(); ++i) {
         sim.step();
         const RigidBodyState& c = sim.cat();
-        REQUIRE_THAT(c.velocity.norm(), WithinAbs(cat_speed, 1e-9));
+        REQUIRE(c.velocity.norm() >= sp.min_fraction * cat_speed - 1e-9);
+        REQUIRE(c.velocity.norm() <= cat_speed + 1e-9);
         REQUIRE(((c.orientation * Vec3::UnitX()) - c.velocity.normalized()).norm() < 1e-6);
         REQUIRE(sim.cat_command().norm() <= apex::cat_accel_max + 1e-9);
     }
 }
 
 TEST_CASE("cat command is zero on the first guidance update", "[sim][cat]") {
-    // Seeker starts with v_hat = 0, so PN sees no LOS swing yet.
+    // Observer starts with v_hat = 0, so pursuit sees no LOS swing yet.
     Simulation sim = make_chase();
     sim.step();  // tick 0: guidance runs
     REQUIRE(sim.cat_command().isZero());
@@ -207,13 +210,15 @@ TEST_CASE("cat catches the mouse before it reaches the goal, then stops", "[sim]
     REQUIRE(sim.time() == frozen_t);
 }
 
-TEST_CASE("mouse holds its speed, nose, and acceleration limit while evading", "[sim][mouse]") {
+TEST_CASE("mouse keeps its speed range, nose, and acceleration limit while evading", "[sim][mouse]") {
     Simulation sim = make_chase();
+    const apex::SpeedParams& sp = apex::mouse_speed_params;
     bool dodged = false;
     for (int i = 0; i < 30000 && !sim.captured() && !sim.reached_goal(); ++i) {
         sim.step();
         const RigidBodyState& m = sim.mouse();
-        REQUIRE_THAT(m.velocity.norm(), WithinAbs(mouse_speed, 1e-9));
+        REQUIRE(m.velocity.norm() >= sp.min_fraction * mouse_speed - 1e-9);
+        REQUIRE(m.velocity.norm() <= mouse_speed + 1e-9);
         REQUIRE(((m.orientation * Vec3::UnitX()) - m.velocity.normalized()).norm() < 1e-6);
         REQUIRE(sim.mouse_command().norm() <= apex::EvadeParams{}.accel_max + 1e-9);
         if (sim.mouse_dodging()) {
@@ -230,4 +235,25 @@ TEST_CASE("mouse does not dodge while the cat is far away in time", "[sim][mouse
         sim.step();
         REQUIRE_FALSE(sim.mouse_dodging());
     }
+}
+
+TEST_CASE("both slow toward their juke speeds during a weave", "[sim][speed]") {
+    // Run until the mouse has been weaving for 1.5 s. Braking 20 -> 15 at 5 m/s^2 takes
+    // 1 s, but the held turn push leans forward as the velocity turns under it,
+    // which eats part of the brake, so give it extra time.
+    Simulation sim = make_chase();
+    double weave_time = 0.0;
+    double min_cat = cat_speed;
+    bool cat_saw = false;
+    for (int i = 0; i < 30000 && !sim.captured() && !sim.reached_goal() && weave_time < 1.5; ++i) {
+        sim.step();
+        weave_time = sim.mouse_dodging() ? weave_time + apex::sim_dt : 0.0;
+        min_cat = std::min(min_cat, sim.cat().velocity.norm());
+        cat_saw = cat_saw || sim.cat_sees_weave();
+    }
+    REQUIRE(weave_time >= 1.5);
+    REQUIRE_THAT(sim.mouse().velocity.norm(),
+                 WithinAbs(apex::mouse_speed_params.juke_fraction * mouse_speed, 0.1));
+    REQUIRE(cat_saw);
+    REQUIRE(min_cat < cat_speed - 1.0);  // the cat braked at least a little
 }
