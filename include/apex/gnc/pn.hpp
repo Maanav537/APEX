@@ -1,34 +1,29 @@
 #pragma once
 
-#include <cmath>
-
 #include <apex/core/types.hpp>
 
 namespace apex {
 
-// Proportional Navigation: push sideways to the line of sight (LOS), as hard
-// as it is swinging, so the swing dies out and the pursuer ends up on a
-// collision course.
+// Proportional Navigation (pure PN): turn the cat's velocity as fast as the
+// line of sight (LOS) is swinging, times N, so the swing dies out and the cat
+// ends up on a collision course with the mouse.
 //
-// `r` is the LOS (evader - pursuer), `v_rel` its rate (v_evader - v_pursuer).
-//   closing speed  Vc = -(r . v_rel) / |r|       > 0 while the gap shrinks
-//   LOS rate       W  = (r x v_rel) / (r . r)    0 when the LOS doesn't swing
-//   command        a  = N * Vc * (W x r_hat)
+// `r` is the LOS (mouse - cat), `v_rel` its rate (v_mouse - v_cat),
+// `v_cat` the cat's own velocity.
+//   LOS rate  W = (r x v_rel) / (r . r)    0 when the LOS doesn't swing
+//   command   a = N * (W x v_cat)          sideways to v_cat: turns, never speeds up
 // Returns world-frame acceleration, m/s^2. Not yet limited; see limit_accel().
-inline Vec3 pn_command(const Vec3& r, const Vec3& v_rel, double nav_gain) {
+inline Vec3 pn_command(const Vec3& r, const Vec3& v_rel, const Vec3& v_cat, double nav_gain) {
     const double rr = r.dot(r);  // |r|^2
 
-    // On top of each other: no LOS direction, and r_hat, W would divide by ~0.
+    // On top of each other: no LOS direction, and W would divide by ~0.
     constexpr double eps = 1e-12;  // m^2
     if (rr < eps) {
         return Vec3::Zero();
     }
 
-    const double range = std::sqrt(rr);
-    const Vec3 r_hat = r / range;
-    const double closing_speed = -r.dot(v_rel) / range;
     const Vec3 los_rate = r.cross(v_rel) / rr;
-    return nav_gain * closing_speed * los_rate.cross(r_hat);
+    return nav_gain * los_rate.cross(v_cat);
 }
 
 // Shrink `a` to length `a_max` if it is longer, keeping its direction

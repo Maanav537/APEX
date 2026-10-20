@@ -28,6 +28,7 @@ APEX: pursuit/evasion kinematics — autonomous pursuer vs evader (3D rendezvous
 - Implemented: Simulation now flies a RigidBodyState mouse (learner: nose = body +x tangent, ω=(0,0,Ω), τ=0, q₀ = 90° about z, normalize after RK4; AI: forces lambda via Wrench, params 1 kg / identity I, Rerun nose arrow).
 - Implemented: include/apex/sim/capture.hpp — closest_distance(r0, r1) over one tick, capture_radius = 0.5 m (learner: s* formula, clamp [0,1], d·d < ε → |r₀|; AI: header-only in sim/ as referee, ε = 1e-12 m², not wired yet). tests/test_capture.cpp.
 - Implemented: goal-seeking mouse replaces the circle — Simulation(mouse, params, goal, speed), reached_goal(), goal_radius 0.5 m (learner: straight line, velocity set directly, arrival via closest_distance, replace circle; AI: aim nose via FromTwoVectors, zero-Wrench RK4 coast, freeze on arrival, demo start (0,0,1000) → goal (500,0,1000) at 20 m/s).
+- Implemented: include/apex/gnc/pn.hpp — pure PN pn_command(r, v_rel, v_pursuer, N) = N·(W × v_pursuer), limit_accel scales to a_max (learner: option A, N = 5, cap between PN and force, scale not clip; AI: |r|≈0 guard). Cat in Simulation: PN at 100 Hz held, F = m·a, speed reset to 60 m/s, nose along v. tests/test_pn.cpp.
 - Planned (learner): src/physics, later sensor, gnc; docs/ for math derivations.
 
 ## Main Flow

@@ -44,7 +44,8 @@ void Simulation::step() {
     if (tick_ % guidance_every == 0) {
         const Vec3 r = mouse_.position - cat_.position;
         const Vec3 v_rel = mouse_.velocity - cat_.velocity;
-        cat_accel_cmd_ = limit_accel(pn_command(r, v_rel, cat_nav_gain), cat_accel_max);
+        cat_accel_cmd_ =
+            limit_accel(pn_command(r, v_rel, cat_.velocity, cat_nav_gain), cat_accel_max);
     }
 
     // 3. Move both. The mouse coasts; the cat is pushed by F = m * a_cmd.
