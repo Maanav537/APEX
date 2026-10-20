@@ -64,7 +64,9 @@ Simulation make_chase() { return make_run(run_start, run_goal, Vec3{-200.0, -300
 TEST_CASE("allocation counter sees heap allocations", "[sim]") {
     // Guards the zero-allocation test: if the counter never counts, that test means nothing.
     const std::size_t before = g_allocations.load();
-    auto* p = new int(42);
+    // volatile pointer: the compiler can't prove the int is unused, so it can't
+    // elide the new/delete pair (GCC does at -O2 otherwise).
+    int* volatile p = new int(42);
     delete p;
     REQUIRE(g_allocations.load() - before == 1);
 }
