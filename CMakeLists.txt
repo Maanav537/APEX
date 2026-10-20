@@ -41,6 +41,7 @@ FetchContent_MakeAvailable(Eigen3 Catch2 rerun_sdk)
 add_library(apex
     src/core/version.cpp
     src/gnc/seeker.cpp
+    src/gnc/tracker.cpp
     src/physics/atmosphere.cpp
     src/sim/simulation.cpp
 )

@@ -206,3 +206,28 @@ TEST_CASE("cat catches the mouse before it reaches the goal, then stops", "[sim]
     REQUIRE(sim.cat().position == frozen.position);
     REQUIRE(sim.time() == frozen_t);
 }
+
+TEST_CASE("mouse holds its speed, nose, and acceleration limit while evading", "[sim][mouse]") {
+    Simulation sim = make_chase();
+    bool dodged = false;
+    for (int i = 0; i < 30000 && !sim.captured() && !sim.reached_goal(); ++i) {
+        sim.step();
+        const RigidBodyState& m = sim.mouse();
+        REQUIRE_THAT(m.velocity.norm(), WithinAbs(mouse_speed, 1e-9));
+        REQUIRE(((m.orientation * Vec3::UnitX()) - m.velocity.normalized()).norm() < 1e-6);
+        REQUIRE(sim.mouse_command().norm() <= apex::EvadeParams{}.accel_max + 1e-9);
+        if (sim.mouse_dodging()) {
+            REQUIRE(sim.mouse_t_go() < apex::EvadeParams{}.t_go_on);
+            dodged = true;
+        }
+    }
+    REQUIRE(dodged);  // the chase gets close enough to trigger at least one dodge
+}
+
+TEST_CASE("mouse does not dodge while the cat is far away in time", "[sim][mouse]") {
+    Simulation sim = make_run();  // cat 100 km behind
+    for (int i = 0; i < 1000; ++i) {
+        sim.step();
+        REQUIRE_FALSE(sim.mouse_dodging());
+    }
+}
