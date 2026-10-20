@@ -46,6 +46,7 @@ public:
     const Vec3& v_hat() const { return v_hat_; }  // m/s, mouse world velocity estimate
     const Vec3& a_hat() const { return a_hat_; }  // m/s^2, mouse world acceleration estimate
     const Vec3& last_reading() const { return reading_; }  // m, noisy LOS reading before filtering
+    const Vec3& innovation() const { return innovation_; }  // m, z - p_pred; zero on the first update
     const Mat3& covariance() const { return P_; }          // 3x3 state covariance P
     double position_gain() const { return k0_; }           // latest K_0 position gain
 
@@ -62,6 +63,7 @@ private:
     Vec3 v_hat_ = Vec3::Zero();
     Vec3 a_hat_ = Vec3::Zero();
     Vec3 reading_ = Vec3::Zero();
+    Vec3 innovation_ = Vec3::Zero();
     Mat3 P_ = Mat3::Zero();
     double k0_ = 0.0;
     bool started_ = false;

@@ -43,6 +43,15 @@ TEST_CASE("first update: p_hat/r_hat is the reading, v_hat and a_hat are zero", 
     REQUIRE(observer.a_hat().isZero());
 }
 
+TEST_CASE("innovation: zero on the first update, then reading minus prediction", "[observer]") {
+    CatObserver obs(no_noise());
+    obs.update(Vec3{100.0, 0.0, 0.0});
+    REQUIRE(obs.innovation() == Vec3::Zero());
+    // v_hat and a_hat are still zero, so the prediction is the first position.
+    obs.update(Vec3{100.0, 5.0, 0.0});
+    REQUIRE_THAT((obs.innovation() - Vec3{0.0, 5.0, 0.0}).norm(), WithinAbs(0.0, 1e-12));
+}
+
 TEST_CASE("no noise: v_hat converges to a constant v_rel", "[observer]") {
     // Mouse drifting away at a steady rate. The filter starts at v_hat = 0
     // and has to learn v_rel from how r changes.

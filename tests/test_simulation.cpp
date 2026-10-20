@@ -249,7 +249,7 @@ TEST_CASE("both slow toward their juke speeds during a weave", "[sim][speed]") {
         sim.step();
         weave_time = sim.mouse_dodging() ? weave_time + apex::sim_dt : 0.0;
         min_cat = std::min(min_cat, sim.cat().velocity.norm());
-        cat_saw = cat_saw || sim.cat_sees_weave();
+        cat_saw = cat_saw || (sim.mouse_dodging() && sim.cat_sees_weave());  // during the weave
     }
     REQUIRE(weave_time >= 1.5);
     REQUIRE_THAT(sim.mouse().velocity.norm(),

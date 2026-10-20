@@ -86,13 +86,13 @@ void Simulation::step() {
 
     // 2. Cat guidance, 100 Hz: the observer reads start-of-tick truth (with noise)
     // and filters the mouse's world state; the cat subtracts its own known position
-    // and velocity, then pursuit runs on those estimates. If a_hat looks like a
-    // weave, the cat slows to its juke speed. The command is held for the next 10
-    // ticks (and all of RK4's 4 calls).
+    // and velocity, then pursuit runs on those estimates. If the observer's
+    // innovation looks like a weave (see WeaveDetector), the cat slows to its juke
+    // speed. The command is held for the next 10 ticks (and all of RK4's 4 calls).
     if (tick_ % guidance_every == 0) {
         observer_.update(cat_.position, mouse_.position - cat_.position, cat_.velocity);
         const Vec3 r_hat = observer_.p_hat() - cat_.position;
-        cat_sees_weave_ = weave_detector_.update(t_, observer_.a_hat(), r_hat);
+        cat_sees_weave_ = weave_detector_.update(t_, observer_.innovation(), r_hat);
         const Vec3 turn = pursuit_command(r_hat, observer_.v_hat() - cat_.velocity,
                                           cat_.velocity, cat_nav_gain);
         cat_accel_cmd_ = command_with_speed(turn, cat_.velocity, cat_speed_, cat_sees_weave_,

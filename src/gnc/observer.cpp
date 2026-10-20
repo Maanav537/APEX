@@ -55,6 +55,7 @@ void CatObserver::update(const Vec3& own_position, const Vec3& r_true, const Vec
     k0_ = K(0);
 
     const Vec3 e = z - p_pred;
+    innovation_ = e;
     p_hat_ = p_pred + K(0) * e;
     v_hat_ = v_pred + K(1) * e;
     a_hat_ = a_pred + K(2) * e;

@@ -48,19 +48,51 @@ TEST_CASE("speed command reaches the target in one period, else is limited", "[s
     REQUIRE(speed_command(50.0, 50.0, 0.01, 10.0) == 0.0);
 }
 
-TEST_CASE("weave detector: only the part of a_hat across the LOS counts", "[speed]") {
+// LOS along +x: the detector's up axis is +z and its side axis is -y.
+namespace {
+const Vec3 los_x{300.0, 0.0, 0.0};
+double tick(int k) { return k / 100.0; }  // 100 Hz updates, exact at whole hundredths
+}  // namespace
+
+TEST_CASE("weave detector: a steady sign triggers on the 3rd full window", "[speed]") {
     WeaveDetector d;
-    const Vec3 r{300.0, 0.0, 0.0};
-    REQUIRE_FALSE(d.update(0.0, Vec3{50.0, 0.0, 0.0}, r));  // along the LOS
-    REQUIRE_FALSE(d.update(0.0, Vec3{0.0, 0.0, 15.0}, r));  // across, but under 20
-    REQUIRE(d.update(0.0, Vec3{0.0, 0.0, 25.0}, r));
+    // Window full at update 20 (21 samples); quiet windows at 20, 21, 22.
+    for (int k = 0; k < 22; ++k) {
+        REQUIRE_FALSE(d.update(tick(k), Vec3{0.0, 0.0, 0.3}, los_x));
+    }
+    REQUIRE(d.update(tick(22), Vec3{0.0, 0.0, 0.3}, los_x));
 }
 
-TEST_CASE("weave detector holds for 0.5 s after the last sighting", "[speed]") {
+TEST_CASE("weave detector: signs flipping every update never trigger", "[speed]") {
     WeaveDetector d;
-    const Vec3 r{300.0, 0.0, 0.0};
-    REQUIRE(d.update(1.0, Vec3{0.0, 0.0, 50.0}, r));
-    REQUIRE(d.update(1.4, Vec3::Zero(), r));
-    REQUIRE(d.update(1.5, Vec3::Zero(), r));
-    REQUIRE_FALSE(d.update(1.51, Vec3::Zero(), r));
+    for (int k = 0; k < 300; ++k) {
+        const double s = k % 2 == 0 ? 1.0 : -1.0;
+        REQUIRE_FALSE(d.update(tick(k), Vec3{0.0, s, s}, los_x));
+    }
+}
+
+TEST_CASE("weave detector: a weave on the side axis counts too", "[speed]") {
+    WeaveDetector d;
+    bool seen = false;
+    for (int k = 0; k <= 22; ++k) {
+        const double s = k % 2 == 0 ? 1.0 : -1.0;
+        seen = d.update(tick(k), Vec3{0.0, 0.3, s}, los_x);  // up flips, side steady
+    }
+    REQUIRE(seen);
+}
+
+TEST_CASE("weave detector holds for 0.5 s after the last quiet run", "[speed]") {
+    // e = (0, -s, s) puts s on both the up (+z) and side (-y) axes, so both flip together.
+    WeaveDetector d;
+    for (int k = 0; k <= 22; ++k) {
+        d.update(tick(k), Vec3{0.0, -0.3, 0.3}, los_x);
+    }
+    // Alternating from update 23: 1, 2, 3 flips stay quiet (last seen at 25), 4 does not.
+    bool seen = false;
+    for (int k = 23; k <= 75; ++k) {
+        const double s = k % 2 == 0 ? 0.3 : -0.3;
+        seen = d.update(tick(k), Vec3{0.0, -s, s}, los_x);
+    }
+    REQUIRE(seen);  // 0.75 - 0.25 = 0.5 s
+    REQUIRE_FALSE(d.update(tick(76), Vec3{0.0, 0.3, 0.3}, los_x));
 }
