@@ -297,7 +297,10 @@ function setPlaying(on) {
   $("play").textContent = on ? "Pause" : "Play";
 }
 
+let runCount = 0;  // only the newest request's answer is shown
+
 async function runScenario() {
+  const mine = ++runCount;
   const params = new URLSearchParams({
     id: $("scenario").value,
     seed: $("seed").value || "1",
@@ -311,6 +314,7 @@ async function runScenario() {
   try {
     const res = await fetch(`/api/run?${params}`);
     const data = await res.json();
+    if (mine !== runCount) return;
     if (!res.ok) throw new Error(data.error || res.statusText);
     run = data;
     frameIndex = 0; playTime = 0;
@@ -321,10 +325,11 @@ async function runScenario() {
     buildScene();
     setPlaying(true);
   } catch (e) {
+    if (mine !== runCount) return;
     $("outcome").className = "outcome err";
     $("outcome").textContent = `Error: ${e.message}`;
   } finally {
-    $("run").disabled = false;
+    if (mine === runCount) $("run").disabled = false;
   }
 }
 
@@ -339,11 +344,22 @@ $("scrub").oninput = (e) => {
   showFrame(Number(e.target.value));
   playTime = run.frames[frameIndex][T];
 };
-$("reroll").onclick = () => { $("seed").value = Math.floor(Math.random() * 1e6); };
-$("scenario").onchange = () => {
+$("reroll").onclick = () => { $("seed").value = Math.floor(Math.random() * 1e6); runScenario(); };
+function describe() {
   const s = scenarios.find((x) => x.id === $("scenario").value);
   $("desc").textContent = s ? s.description : "";
-};
+}
+// Any setting change re-runs: the dropdown and checkbox right away, number boxes
+// 0.4 s after the last keystroke or arrow click (skipped while the box is empty).
+$("scenario").onchange = () => { describe(); runScenario(); };
+$("varyNoise").onchange = runScenario;
+let typingTimer = 0;
+for (const id of ["catSpeed", "mouseSpeed", "seed"]) {
+  $(id).oninput = () => {
+    clearTimeout(typingTimer);
+    if ($(id).value !== "") typingTimer = setTimeout(runScenario, 400);
+  };
+}
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
 (async () => {
@@ -351,7 +367,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", app
   try {
     scenarios = await (await fetch("/api/scenarios")).json();
     $("scenario").innerHTML = scenarios.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
-    $("scenario").onchange();
+    describe();
     runScenario();
   } catch (e) {
     $("outcome").className = "outcome err";
