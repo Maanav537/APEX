@@ -40,6 +40,7 @@ FetchContent_MakeAvailable(Eigen3 Catch2 rerun_sdk)
 # --- Core library: all physics code compiles once here; tests and apps link to it.
 add_library(apex
     src/core/version.cpp
+    src/gnc/seeker.cpp
     src/physics/atmosphere.cpp
     src/sim/simulation.cpp
 )

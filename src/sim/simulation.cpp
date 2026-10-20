@@ -19,14 +19,16 @@ void align_nose(RigidBodyState& x) {
 
 Simulation::Simulation(const RigidBodyState& mouse, const RigidBodyParams& mouse_params,
                        const Vec3& goal, double mouse_speed, const RigidBodyState& cat,
-                       const RigidBodyParams& cat_params, double cat_speed)
+                       const RigidBodyParams& cat_params, double cat_speed,
+                       const SeekerParams& seeker_params)
     : mouse_(mouse),
       mouse_params_(mouse_params),
       goal_(goal),
       mouse_speed_(mouse_speed),
       cat_(cat),
       cat_params_(cat_params),
-      cat_speed_(cat_speed) {
+      cat_speed_(cat_speed),
+      seeker_(seeker_params) {
     align_nose(cat_);
 }
 
@@ -39,13 +41,15 @@ void Simulation::step() {
     mouse_.velocity = mouse_speed_ * (goal_ - mouse_.position).normalized();
     align_nose(mouse_);
 
-    // 2. Cat guidance, 100 Hz: PN on start-of-tick truth, then limited.
-    // The command is held for the next 10 ticks (and all of RK4's 4 calls).
+    // 2. Cat guidance, 100 Hz: the seeker reads start-of-tick truth (with noise)
+    // and filters it; PN runs on its estimates, then is limited. v_cat is the
+    // cat's own state, not a seeker output. The command is held for the next
+    // 10 ticks (and all of RK4's 4 calls).
     if (tick_ % guidance_every == 0) {
-        const Vec3 r = mouse_.position - cat_.position;
-        const Vec3 v_rel = mouse_.velocity - cat_.velocity;
-        cat_accel_cmd_ =
-            limit_accel(pn_command(r, v_rel, cat_.velocity, cat_nav_gain), cat_accel_max);
+        seeker_.update(mouse_.position - cat_.position);
+        cat_accel_cmd_ = limit_accel(
+            pn_command(seeker_.r_hat(), seeker_.v_hat(), cat_.velocity, cat_nav_gain),
+            cat_accel_max);
     }
 
     // 3. Move both. The mouse coasts; the cat is pushed by F = m * a_cmd.

@@ -165,9 +165,18 @@ TEST_CASE("cat holds its speed, nose, and acceleration limit while chasing", "[s
     }
 }
 
-TEST_CASE("cat command is held between guidance updates", "[sim][cat]") {
+TEST_CASE("cat command is zero on the first guidance update", "[sim][cat]") {
+    // Seeker starts with v_hat = 0, so PN sees no LOS swing yet.
     Simulation sim = make_chase();
     sim.step();  // tick 0: guidance runs
+    REQUIRE(sim.cat_command().isZero());
+}
+
+TEST_CASE("cat command is held between guidance updates", "[sim][cat]") {
+    Simulation sim = make_chase();
+    for (int i = 0; i <= apex::guidance_every; ++i) {
+        sim.step();  // ticks 0..10; tick 10 is the first update with v_hat != 0
+    }
     const Vec3 held = sim.cat_command();
     REQUIRE(held.norm() > 0.0);
     for (int i = 1; i < apex::guidance_every; ++i) {

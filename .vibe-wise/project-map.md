@@ -29,6 +29,7 @@ APEX: pursuit/evasion kinematics — autonomous pursuer vs evader (3D rendezvous
 - Implemented: include/apex/sim/capture.hpp — closest_distance(r0, r1) over one tick, capture_radius = 0.5 m (learner: s* formula, clamp [0,1], d·d < ε → |r₀|; AI: header-only in sim/ as referee, ε = 1e-12 m², not wired yet). tests/test_capture.cpp.
 - Implemented: goal-seeking mouse replaces the circle — Simulation(mouse, params, goal, speed), reached_goal(), goal_radius 0.5 m (learner: straight line, velocity set directly, arrival via closest_distance, replace circle; AI: aim nose via FromTwoVectors, zero-Wrench RK4 coast, freeze on arrival, demo start (0,0,1000) → goal (500,0,1000) at 20 m/s).
 - Implemented: include/apex/gnc/pn.hpp — pure PN pn_command(r, v_rel, v_pursuer, N) = N·(W × v_pursuer), limit_accel scales to a_max (learner: option A, N = 5, cap between PN and force, scale not clip; AI: |r|≈0 guard). Cat in Simulation: PN at 100 Hz held, F = m·a, speed reset to 60 m/s, nose along v. tests/test_pn.cpp.
+- Implemented (unbuilt): include/apex/gnc/seeker.hpp + src/gnc/seeker.cpp — Seeker: noisy range/az/el reading → alpha-beta filter → r̂, v̂ fed to PN at 100 Hz (learner: radar range+angles, σ_range 1 m, α 0.2, β 1/45, r̂₀ = reading, v̂₀ = 0, separate object; AI: σ_angle 1 mrad, world-frame angles, fixed-seed mt19937). tests/test_seeker.cpp.
 - Planned (learner): src/physics, later sensor, gnc; docs/ for math derivations.
 
 ## Main Flow

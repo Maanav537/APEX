@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/types.hpp>
+#include <apex/gnc/seeker.hpp>
 
 namespace apex {
 
@@ -18,14 +19,15 @@ inline constexpr double cat_accel_max = 100.0;  // m/s^2
 // The mouse flies a straight line to a fixed `goal` at a constant speed: its
 // velocity is set each tick, not pushed by a force.
 //
-// The cat chases it with PN: the limited command becomes a force F = m * a,
+// The cat chases it with PN fed by its seeker (noisy reading + alpha-beta
+// filter), not by truth: the limited command becomes a force F = m * a,
 // RK4 integrates it, then the cat's speed is reset to `cat_speed` and its nose
 // (body +x) is set along its velocity. `cat` must start with nonzero velocity.
 class Simulation {
 public:
     Simulation(const RigidBodyState& mouse, const RigidBodyParams& mouse_params, const Vec3& goal,
                double mouse_speed, const RigidBodyState& cat, const RigidBodyParams& cat_params,
-               double cat_speed);
+               double cat_speed, const SeekerParams& seeker_params = {});
 
     // One tick: aim the mouse, update the cat's command (every 10th tick), RK4
     // both, normalize q, reset cat speed and nose, advance the clock, then check
@@ -36,6 +38,7 @@ public:
     const RigidBodyState& cat() const { return cat_; }
     const Vec3& goal() const { return goal_; }
     const Vec3& cat_command() const { return cat_accel_cmd_; }  // m/s^2, world frame, limited
+    const Seeker& seeker() const { return seeker_; }
     double time() const { return t_; }
     bool ground_hit() const { return ground_hit_; }
     bool captured() const { return captured_; }
@@ -51,6 +54,7 @@ private:
     RigidBodyParams cat_params_;
     double cat_speed_;
     Vec3 cat_accel_cmd_ = Vec3::Zero();  // held between guidance updates
+    Seeker seeker_;
 
     double t_ = 0.0;
     long long tick_ = 0;
