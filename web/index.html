@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APEX Scenarios</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1c2330; --muted: #5d6676;
+    --border: #d9dde4; --accent: #2f6fd6; --scene: #eef1f5; --grid: #c9cfd8;
+    --cat: #d64545; --mouse: #2f7fd6; --dodge: #e08a1e; --goal: #2e9e5b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1a1f27; --text: #e4e8ef; --muted: #98a2b3;
+      --border: #2c3440; --accent: #5b93ec; --scene: #0f1217; --grid: #2a313c;
+      --cat: #ef6b6b; --mouse: #5aa2f0; --dodge: #f0a640; --goal: #4cc27e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--border); padding: 20px 16px;
+          display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: 18px; margin: 0; letter-spacing: 0.02em; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: 8px; }
+  select, input[type=number] { font: inherit; color: var(--text); background: var(--bg);
+          border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; width: 100%; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button { font: inherit; border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px;
+           background: var(--bg); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .desc { color: var(--muted); font-size: 13px; margin: 0; }
+  .outcome { font-weight: 600; min-height: 1.4em; }
+  .outcome.err { color: var(--cat); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px;
+                         border-radius: 50%; margin-right: 5px; background: var(--c); vertical-align: -1px; }
+  main { display: flex; flex-direction: column; min-width: 0; }
+  #view { flex: 1; min-height: 360px; position: relative; background: var(--scene); }
+  #view canvas { display: block; }
+  .readout { position: absolute; top: 10px; left: 12px; font: 12px ui-monospace, monospace;
+             color: var(--muted); pointer-events: none; white-space: pre; }
+  .controls { display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+              border-top: 1px solid var(--border); background: var(--panel); }
+  .controls input[type=range] { flex: 1; min-width: 0; }
+  .controls select { width: auto; }
+  .time { font: 12px ui-monospace, monospace; color: var(--muted); min-width: 92px; text-align: right; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px 16px;
+            background: var(--panel); border-top: 1px solid var(--border); }
+  .chart h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 4px; }
+  .chart canvas { width: 100%; height: 130px; display: block; }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--border); }
+    #view { min-height: 300px; }
+    .charts { grid-template-columns: 1fr; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>APEX scenarios</h1>
+    <label>Scenario <select id="scenario"></select></label>
+    <p class="desc" id="desc"></p>
+    <div class="row">
+      <label>Cat speed (m/s) <input id="catSpeed" type="number" min="5" max="500" step="1" value="50"></label>
+      <label>Mouse speed (m/s) <input id="mouseSpeed" type="number" min="5" max="500" step="1" value="20"></label>
+    </div>
+    <div class="row">
+      <label>Seed <input id="seed" type="number" min="0" step="1" value="1"></label>
+      <label>&nbsp;<button id="reroll" type="button">New seed</button></label>
+    </div>
+    <label class="check"><input id="varyNoise" type="checkbox"> Seed also varies sensor noise</label>
+    <button id="run" class="primary" type="button">Run</button>
+    <div class="outcome" id="outcome"></div>
+    <div class="legend">
+      <span style="--c: var(--cat)">cat</span>
+      <span style="--c: var(--mouse)">mouse</span>
+      <span style="--c: var(--dodge)">mouse weaving</span>
+      <span style="--c: var(--goal)">goal</span>
+    </div>
+    <p class="desc">Drag to orbit, scroll to zoom. Markers are drawn larger than the 0.5 m capture and goal radii so they stay visible.</p>
+  </aside>
+  <main>
+    <div id="view"><div class="readout" id="readout"></div></div>
+    <div class="controls">
+      <button id="play" type="button" disabled>Play</button>
+      <select id="rate" aria-label="Playback speed">
+        <option value="1">1×</option><option value="2" selected>2×</option><option value="5">5×</option>
+      </select>
+      <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Time">
+      <span class="time" id="time">0.00 s</span>
+    </div>
+    <div class="charts">
+      <div class="chart"><h2>Range cat → mouse (m)</h2><canvas id="rangeChart"></canvas></div>
+      <div class="chart"><h2>Speeds (m/s)</h2><canvas id="speedChart"></canvas></div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Frame layout from /api/run:
+// [t, mx, my, mz, cx, cy, cz, mouse speed, cat speed, range, mouse dodging, cat sees weave]
+const T = 0, M = 1, C = 4, MS = 7, CS = 8, R = 9, DODGE = 10;
+
+// Sim is z-up; three.js is y-up. Positions are shifted by `origin` to keep numbers small.
+let origin = new THREE.Vector3();
+const toScene = (f, i) => new THREE.Vector3(f[i] - origin.x, f[i + 2] - origin.z, -(f[i + 1] - origin.y));
+
+// --- Scene -----------------------------------------------------------------
+const view = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 1, 1, 20000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x666666, 2.2));
+
+const world = new THREE.Group();
+scene.add(world);
+
+function marker(color, radius) {
+  return new THREE.Mesh(new THREE.SphereGeometry(radius, 20, 14),
+                        new THREE.MeshStandardMaterial({ color, roughness: 0.6 }));
+}
+function trail(color) {
+  const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color }));
+  line.frustumCulled = false;
+  return line;
+}
+
+let run = null;          // last /api/run result
+let catMesh, mouseMesh, catTrail, mouseTrail;
+let frameIndex = 0, playing = false, playTime = 0, lastTick = 0;
+
+function applyTheme() {
+  scene.background = new THREE.Color(css("--scene"));
+  if (run) buildScene();
+  drawCharts();
+}
+
+function buildScene() {
+  world.clear();
+  const f0 = run.frames[0];
+  const pts = run.frames.flatMap((f) => [[f[M], f[M + 1], f[M + 2]], [f[C], f[C + 1], f[C + 2]]]);
+  pts.push(run.goal);
+  const min = [0, 1, 2].map((k) => Math.min(...pts.map((p) => p[k])));
+  const max = [0, 1, 2].map((k) => Math.max(...pts.map((p) => p[k])));
+  origin.set((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, min[2]);
+  const span = Math.max(max[0] - min[0], max[1] - min[1], 200);
+  const size = span / 80;  // display size, m
+
+  // Reference grid just under the lowest point of the run (not the ground at z = 0).
+  const grid = new THREE.GridHelper(span * 1.6, 16, css("--grid"), css("--grid"));
+  grid.position.y = -size * 4;
+  world.add(grid);
+
+  const goal = marker(css("--goal"), size * 1.2);
+  goal.position.copy(toScene(run.goal, 0));
+  world.add(goal);
+
+  catMesh = marker(css("--cat"), size);
+  mouseMesh = marker(css("--mouse"), size);
+  catTrail = trail(css("--cat"));
+  mouseTrail = trail(css("--mouse"));
+  catTrail.geometry.setFromPoints(run.frames.map((f) => toScene(f, C)));
+  mouseTrail.geometry.setFromPoints(run.frames.map((f) => toScene(f, M)));
+  world.add(catMesh, mouseMesh, catTrail, mouseTrail);
+
+  const centerY = (max[2] - min[2]) / 2;
+  controls.target.set(0, centerY, 0);
+  camera.position.set(span * 0.15, centerY + span * 0.75, span * 0.95);
+  controls.update();
+  showFrame(frameIndex);
+}
+
+function showFrame(i) {
+  if (!run) return;
+  frameIndex = Math.max(0, Math.min(i, run.frames.length - 1));
+  const f = run.frames[frameIndex];
+  catMesh.position.copy(toScene(f, C));
+  mouseMesh.position.copy(toScene(f, M));
+  mouseMesh.material.color.set(f[DODGE] ? css("--dodge") : css("--mouse"));
+  catTrail.geometry.setDrawRange(0, frameIndex + 1);
+  mouseTrail.geometry.setDrawRange(0, frameIndex + 1);
+  $("scrub").value = frameIndex;
+  $("time").textContent = `${f[T].toFixed(2)} s`;
+  $("readout").textContent =
+    `range ${f[R].toFixed(1)} m\ncat   ${f[CS].toFixed(1)} m/s\nmouse ${f[MS].toFixed(1)} m/s` +
+    (f[DODGE] ? "  weaving" : "") + (f[11] ? "\ncat sees weave" : "");
+  drawCharts();
+}
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  drawCharts();
+}
+new ResizeObserver(resize).observe(view);
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  if (playing && run) {
+    playTime += ((now - lastTick) / 1000) * Number($("rate").value);
+    const end = run.frames[run.frames.length - 1][T];
+    if (playTime >= end) { playTime = end; setPlaying(false); }
+    // Frames are every 0.01 s; find the last one at or before playTime.
+    let i = frameIndex;
+    while (i + 1 < run.frames.length && run.frames[i + 1][T] <= playTime) i++;
+    if (i !== frameIndex) showFrame(i);
+  }
+  lastTick = now;
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+// --- Charts ----------------------------------------------------------------
+function chart(canvas, series, yMin, yMax) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext("2d");
+  g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+  const padL = 40, padB = 18, padT = 6, padR = 8;
+  const pw = w - padL - padR, ph = h - padT - padB;
+  g.font = "11px system-ui, sans-serif";
+  g.fillStyle = css("--muted");
+  g.strokeStyle = css("--border");
+  g.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) {
+    const y = padT + ph * (1 - k / 4);
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + pw, y); g.stroke();
+    g.fillText(String(Math.round(yMin + ((yMax - yMin) * k) / 4)), 4, y + 4);
+  }
+  if (!run) return;
+  const frames = run.frames;
+  const tEnd = frames[frames.length - 1][T] || 1;
+  const x = (t) => padL + (pw * t) / tEnd;
+  const y = (v) => padT + ph * (1 - (v - yMin) / (yMax - yMin || 1));
+  g.fillText(`${tEnd.toFixed(1)} s`, padL + pw - 34, h - 4);
+  g.fillText("0", padL, h - 4);
+  for (const s of series) {
+    g.strokeStyle = s.color; g.lineWidth = 1.6;
+    g.beginPath();
+    frames.forEach((f, i) => (i ? g.lineTo(x(f[T]), y(f[s.index])) : g.moveTo(x(f[T]), y(f[s.index]))));
+    g.stroke();
+  }
+  const tNow = frames[frameIndex][T];
+  g.strokeStyle = css("--text"); g.globalAlpha = 0.5; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(x(tNow), padT); g.lineTo(x(tNow), padT + ph); g.stroke();
+  g.globalAlpha = 1;
+}
+
+function drawCharts() {
+  const rMax = run ? Math.max(...run.frames.map((f) => f[R])) : 100;
+  chart($("rangeChart"), [{ index: R, color: css("--accent") }], 0, Math.ceil(rMax / 50) * 50);
+  const vMax = run ? Math.max(run.cat_speed, run.mouse_speed) : 60;
+  chart($("speedChart"), [{ index: CS, color: css("--cat") }, { index: MS, color: css("--mouse") }],
+        0, Math.ceil((vMax * 1.1) / 10) * 10);
+}
+
+// --- Controls --------------------------------------------------------------
+let scenarios = [];
+const OUTCOME = {
+  captured: "Cat caught the mouse",
+  goal: "Mouse reached the goal",
+  ground: "Mouse hit the ground",
+  timeout: "Time limit reached",
+};
+
+function setPlaying(on) {
+  playing = on;
+  $("play").textContent = on ? "Pause" : "Play";
+}
+
+async function runScenario() {
+  const params = new URLSearchParams({
+    id: $("scenario").value,
+    seed: $("seed").value || "1",
+    cat_speed: $("catSpeed").value,
+    mouse_speed: $("mouseSpeed").value,
+    vary_noise: $("varyNoise").checked ? "1" : "0",
+  });
+  $("run").disabled = true;
+  $("outcome").className = "outcome";
+  $("outcome").textContent = "Running…";
+  try {
+    const res = await fetch(`/api/run?${params}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    run = data;
+    frameIndex = 0; playTime = 0;
+    $("scrub").max = run.frames.length - 1;
+    $("scrub").disabled = false;
+    $("play").disabled = false;
+    $("outcome").textContent = `${OUTCOME[run.outcome]} at ${run.end_time.toFixed(2)} s`;
+    buildScene();
+    setPlaying(true);
+  } catch (e) {
+    $("outcome").className = "outcome err";
+    $("outcome").textContent = `Error: ${e.message}`;
+  } finally {
+    $("run").disabled = false;
+  }
+}
+
+$("run").onclick = runScenario;
+$("play").onclick = () => {
+  if (!run) return;
+  if (!playing && frameIndex >= run.frames.length - 1) { frameIndex = 0; playTime = 0; }
+  setPlaying(!playing);
+};
+$("scrub").oninput = (e) => {
+  setPlaying(false);
+  showFrame(Number(e.target.value));
+  playTime = run.frames[frameIndex][T];
+};
+$("reroll").onclick = () => { $("seed").value = Math.floor(Math.random() * 1e6); };
+$("scenario").onchange = () => {
+  const s = scenarios.find((x) => x.id === $("scenario").value);
+  $("desc").textContent = s ? s.description : "";
+};
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+(async () => {
+  applyTheme();
+  try {
+    scenarios = await (await fetch("/api/scenarios")).json();
+    $("scenario").innerHTML = scenarios.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+    $("scenario").onchange();
+    runScenario();
+  } catch (e) {
+    $("outcome").className = "outcome err";
+    $("outcome").textContent = "Could not reach apex_web.";
+  }
+})();
+</script>
+</body>
+</html>

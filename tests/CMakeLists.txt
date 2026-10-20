@@ -15,6 +15,7 @@ add_executable(apex_tests
     test_tracker.cpp
     test_evade.cpp
     test_speed.cpp
+    test_scenarios.cpp
 )
 target_link_libraries(apex_tests PRIVATE apex Catch2::Catch2WithMain)
 target_compile_options(apex_tests PRIVATE

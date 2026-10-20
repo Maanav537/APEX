@@ -18,7 +18,7 @@
 
 #include <rerun.hpp>
 
-#include <apex/sim/simulation.hpp>
+#include <apex/sim/scenarios.hpp>
 
 int main(int argc, char** argv) {
     bool random_spawn = false;
@@ -35,33 +35,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    apex::Vec3 start{0.0, 0.0, 1000.0};  // m
+    const auto scenario = apex::make_scenario(random_spawn ? "random" : "basic", seed);
+    const apex::Vec3& start = scenario->mouse_start;
     if (random_spawn) {
-        // Flat circle (same altitude) around the default start. sqrt(u) spreads points
-        // evenly over the area instead of bunching them at the center.
-        constexpr double spawn_radius = 300.0;  // m, keeps the mouse at least 200 m from the goal
-        constexpr double pi = 3.14159265358979323846;
-        std::mt19937 rng(seed);
-        std::uniform_real_distribution<double> unit(0.0, 1.0);
-        const double radius = spawn_radius * std::sqrt(unit(rng));
-        const double angle = 2.0 * pi * unit(rng);
-        start += apex::Vec3{radius * std::cos(angle), radius * std::sin(angle), 0.0};
         std::printf("random spawn: mouse at (%.1f, %.1f, %.1f) m, seed %u\n", start.x(),
                     start.y(), start.z(), static_cast<unsigned>(seed));
     }
-    const apex::Vec3 goal{500.0, 0.0, 1000.0};  // m
-    const double mouse_speed = 20.0;            // m/s
-    const double cat_speed = 50.0;              // m/s, cruise
-
-    apex::RigidBodyState mouse;
-    mouse.position = start;  // velocity and nose are aimed at the goal by Simulation
-
-    apex::RigidBodyState cat;
-    cat.position = apex::Vec3{600.0, 100.0, 1000.0};  // m, guarding: just past the goal
-    cat.velocity = apex::Vec3{-cat_speed, 0.0, 0.0};  // flying -x, toward the mouse
-
-    const auto params = apex::make_rigid_body_params(1.0, apex::Mat3::Identity());
-    apex::Simulation sim{mouse, params, goal, mouse_speed, cat, params, cat_speed};
+    const apex::Vec3& goal = scenario->goal;
+    apex::Simulation sim = apex::make_simulation(*scenario);
 
     const rerun::RecordingStream rec("apex_sim");
     rec.spawn().exit_on_failure();
@@ -73,7 +54,7 @@ int main(int argc, char** argv) {
 
     // Drawing lives outside step(): it allocates, and 100 Hz is plenty for the eye.
     const int log_every = apex::guidance_every;
-    const double max_time = 2.0 * (goal - start).norm() / mouse_speed;  // s, upper time limit
+    const double max_time = apex::scenario_max_time(*scenario);  // s, upper time limit
     const int max_steps = static_cast<int>(std::lround(max_time / apex::sim_dt));
     const double nose_length = 20.0;  // m, display only
 

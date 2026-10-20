@@ -35,7 +35,18 @@ FetchContent_Declare(rerun_sdk
     EXCLUDE_FROM_ALL
 )
 
-FetchContent_MakeAvailable(Eigen3 Catch2 rerun_sdk)
+# cpp-httplib: header-only HTTP server for the web front end (apex_web).
+set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(httplib
+    URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.57.1.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    EXCLUDE_FROM_ALL
+)
+
+FetchContent_MakeAvailable(Eigen3 Catch2 rerun_sdk httplib)
 
 # --- Core library: all physics code compiles once here; tests and apps link to it.
 add_library(apex
@@ -54,6 +65,11 @@ target_compile_options(apex PRIVATE
 # --- Week 1 demo: dummy mouse circle drawn in Rerun. First build compiles Arrow (slow).
 add_executable(apex_sim apps/sim_main.cpp)
 target_link_libraries(apex_sim PRIVATE apex rerun_sdk)
+
+# --- Web front end: local server that runs preset scenarios; page in web/.
+add_executable(apex_web apps/web_main.cpp)
+target_link_libraries(apex_web PRIVATE apex httplib::httplib)
+target_compile_definitions(apex_web PRIVATE APEX_WEB_DIR="${PROJECT_SOURCE_DIR}/web")
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
